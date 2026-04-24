@@ -1,5 +1,5 @@
 import apiClient from './client'
-import type { Order, CreateOrderDto, DailySummaryItem } from '../types'
+import type { Order, CreateOrderDto, DailySummary } from '../types'
 
 export const getOrders = async (): Promise<Order[]> => {
   const res = await apiClient.get<Order[]>('/Orders')
@@ -15,7 +15,7 @@ export const changeOrderStatus = async (id: number, estado: number): Promise<voi
   await apiClient.patch(`/Orders/${id}/status`, { estado })
 }
 
-export const getDailySummary = async (): Promise<DailySummaryItem[]> => {
-  const res = await apiClient.get<DailySummaryItem[]>('/Orders/summary/daily')
+export const getDailySummary = async (): Promise<DailySummary> => {
+  const res = await apiClient.get<DailySummary>('/Orders/summary/daily')
   return res.data
 }

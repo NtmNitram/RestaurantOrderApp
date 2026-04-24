@@ -1,7 +1,5 @@
 // Estos tipos reflejan exactamente lo que devuelve tu backend .NET
 
-export type OrderStatus = 0 | 1 | 2 // 0=Pending, 1=Delivered, 2=Cancelled
-
 export interface Client {
   id: number
   nombre: string
@@ -18,10 +16,8 @@ export interface MenuItem {
   disponible: boolean
 }
 
-// TODO: confirmar nombres exactos del backend con Swagger
 export interface OrderDetail {
   id: number
-  pedidoId: number
   articuloId: number
   nombreArticulo: string
   cantidad: number
@@ -33,18 +29,26 @@ export interface Order {
   id: number
   clienteId: number
   nombreCliente: string
+  localCliente: string
   fechaPedido: string
-  estado: OrderStatus
+  estado: string // "Pendiente" | "Entregado" | "Cancelado"
   notas: string
   total: number
-  detalles: OrderDetail[]
+  articulos: OrderDetail[]
 }
 
-export interface DailySummaryItem {
+export interface DailySummaryCliente {
   clienteId: number
   nombreCliente: string
+  numeroLocal: string
+  totalACobrar: number
+}
+
+export interface DailySummary {
+  fecha: string
   totalPedidos: number
-  totalMonto: number
+  clientes: DailySummaryCliente[]
+  totalGeneral: number
 }
 
 // Lo que se manda al crear un pedido

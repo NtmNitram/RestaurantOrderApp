@@ -23,8 +23,8 @@ export default function NewOrderPage() {
   const mutation = useMutation({
     mutationFn: createOrder,
     onSuccess: () => {
-      // Invalida el caché de pedidos para que se recarguen
       queryClient.invalidateQueries({ queryKey: ['orders'] })
+      queryClient.invalidateQueries({ queryKey: ['daily-summary'] })
       navigate('/pedidos')
     },
   })
