@@ -1,35 +1,54 @@
 import { NavLink, Outlet } from 'react-router-dom'
+import { UtensilsCrossed, Users, ClipboardList, BarChart3 } from 'lucide-react'
 
-// Outlet es como <router-outlet> en Angular — renderiza la página activa
 export default function Layout() {
   return (
-    <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-4xl mx-auto px-4 py-3 flex items-center gap-6">
-          <span className="font-bold text-gray-800 text-lg">Restaurante</span>
+    <div className="min-h-screen bg-gray-100">
+      <nav className="bg-gray-900 shadow-lg">
+        <div className="max-w-4xl mx-auto px-4 py-4 flex items-center gap-2">
+          <UtensilsCrossed className="text-orange-400 w-6 h-6 mr-2" />
+          <span className="font-bold text-white text-lg mr-6">Restaurante</span>
+
           <NavLink
             to="/clientes"
             className={({ isActive }) =>
-              isActive ? 'text-blue-600 font-medium' : 'text-gray-600 hover:text-gray-900'
+              `flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                isActive
+                  ? 'bg-orange-500 text-white'
+                  : 'text-gray-400 hover:text-white hover:bg-gray-800'
+              }`
             }
           >
+            <Users className="w-4 h-4" />
             Clientes
           </NavLink>
+
           <NavLink
             to="/pedidos"
             className={({ isActive }) =>
-              isActive ? 'text-blue-600 font-medium' : 'text-gray-600 hover:text-gray-900'
+              `flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                isActive
+                  ? 'bg-orange-500 text-white'
+                  : 'text-gray-400 hover:text-white hover:bg-gray-800'
+              }`
             }
           >
+            <ClipboardList className="w-4 h-4" />
             Pedidos
           </NavLink>
+
           <NavLink
             to="/resumen"
             className={({ isActive }) =>
-              isActive ? 'text-blue-600 font-medium' : 'text-gray-600 hover:text-gray-900'
+              `flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                isActive
+                  ? 'bg-orange-500 text-white'
+                  : 'text-gray-400 hover:text-white hover:bg-gray-800'
+              }`
             }
           >
-            Resumen del día
+            <BarChart3 className="w-4 h-4" />
+            Resumen
           </NavLink>
         </div>
       </nav>
