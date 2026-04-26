@@ -1,14 +1,27 @@
-// Este archivo es como el "servicio base" de Angular.
-// Configura axios una sola vez con la URL base.
-// Todos los demás archivos de api/ lo importan.
-
 import axios from 'axios'
 
-const apiClient = axios.create({
+const api = axios.create({
   baseURL: '/api',
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  headers: { 'Content-Type': 'application/json' },
 })
 
-export default apiClient
+api.interceptors.request.use(config => {
+  const token = localStorage.getItem('token')
+  if (token) config.headers.Authorization = `Bearer ${token}`
+  return config
+})
+
+api.interceptors.response.use(
+  res => res,
+  error => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('token')
+      localStorage.removeItem('role')
+      localStorage.removeItem('username')
+      window.location.href = '/login'
+    }
+    return Promise.reject(error)
+  }
+)
+
+export default api

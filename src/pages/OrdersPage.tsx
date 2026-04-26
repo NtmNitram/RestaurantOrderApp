@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getOrders, changeOrderStatus } from '../api/orders'
 import type { Order } from '../types'
@@ -22,6 +23,7 @@ const STATUS_STYLE: Record<string, { bg: string; text: string; icon: React.React
 }
 
 export default function OrdersPage() {
+  const [tab, setTab] = useState<'pendientes' | 'todos'>('pendientes')
   const queryClient = useQueryClient()
 
   const { data: orders, isLoading, isError } = useQuery({
@@ -47,24 +49,53 @@ export default function OrdersPage() {
   )
 
   const pendientes = orders?.filter(o => o.estado === 'Pendiente') ?? []
+  const visibles = tab === 'pendientes' ? pendientes : (orders ?? [])
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Pedidos activos</h1>
-        <p className="text-sm text-gray-500 mt-1">{pendientes.length} pedido(s) pendientes</p>
+      <div className="mb-4">
+        <h1 className="text-2xl font-bold text-gray-800">Pedidos del día</h1>
       </div>
 
-      {pendientes.length === 0 ? (
+      <div className="flex gap-1 bg-gray-200 p-1 rounded-lg mb-5">
+        <button
+          onClick={() => setTab('pendientes')}
+          className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-md text-sm font-medium transition-colors ${
+            tab === 'pendientes' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          Pendientes
+          {pendientes.length > 0 && (
+            <span className="bg-orange-500 text-white text-[10px] min-w-[16px] h-4 px-1 rounded-full flex items-center justify-center font-bold leading-none">
+              {pendientes.length}
+            </span>
+          )}
+        </button>
+        <button
+          onClick={() => setTab('todos')}
+          className={`flex-1 py-2 rounded-md text-sm font-medium transition-colors ${
+            tab === 'todos' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          Todos ({orders?.length ?? 0})
+        </button>
+      </div>
+
+      {visibles.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
           <CheckCircle className="w-12 h-12 mx-auto mb-3 text-green-300" />
-          <p className="text-lg font-medium">Todo al día</p>
-          <p className="text-sm mt-1">No hay pedidos pendientes</p>
+          <p className="text-lg font-medium">
+            {tab === 'pendientes' ? 'Todo al día' : 'Sin pedidos aún'}
+          </p>
+          <p className="text-sm mt-1">
+            {tab === 'pendientes' ? 'No hay pedidos pendientes' : 'No hay pedidos registrados hoy'}
+          </p>
         </div>
       ) : (
         <div className="grid gap-3">
-          {pendientes.map((order: Order) => {
+          {visibles.map((order: Order) => {
             const status = STATUS_STYLE[order.estado] ?? STATUS_STYLE['Pendiente']
+            const isPendiente = order.estado === 'Pendiente'
             return (
               <div key={order.id} className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition-shadow">
                 <div className="flex items-start justify-between mb-3">
@@ -101,24 +132,26 @@ export default function OrdersPage() {
 
                 <div className="flex items-center justify-between pt-2 border-t border-gray-100">
                   <span className="font-bold text-gray-800 text-lg">${order.total.toFixed(2)}</span>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => mutation.mutate({ id: order.id, estado: 1 })}
-                      disabled={mutation.isPending}
-                      className="flex items-center gap-1.5 bg-green-500 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-green-600 disabled:opacity-50 transition-colors"
-                    >
-                      <CheckCircle className="w-3.5 h-3.5" />
-                      Entregar
-                    </button>
-                    <button
-                      onClick={() => mutation.mutate({ id: order.id, estado: 2 })}
-                      disabled={mutation.isPending}
-                      className="flex items-center gap-1.5 bg-red-50 text-red-600 border border-red-200 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-red-100 disabled:opacity-50 transition-colors"
-                    >
-                      <XCircle className="w-3.5 h-3.5" />
-                      Cancelar
-                    </button>
-                  </div>
+                  {isPendiente && (
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => mutation.mutate({ id: order.id, estado: 1 })}
+                        disabled={mutation.isPending}
+                        className="flex items-center gap-1.5 bg-green-500 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-green-600 disabled:opacity-50 transition-colors"
+                      >
+                        <CheckCircle className="w-3.5 h-3.5" />
+                        Entregar
+                      </button>
+                      <button
+                        onClick={() => mutation.mutate({ id: order.id, estado: 2 })}
+                        disabled={mutation.isPending}
+                        className="flex items-center gap-1.5 bg-red-50 text-red-600 border border-red-200 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-red-100 disabled:opacity-50 transition-colors"
+                      >
+                        <XCircle className="w-3.5 h-3.5" />
+                        Cancelar
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             )
