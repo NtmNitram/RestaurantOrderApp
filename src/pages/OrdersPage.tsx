@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getOrders, changeOrderStatus } from '../api/orders'
 import type { Order } from '../types'
-import { CheckCircle, XCircle, Clock, MapPin } from 'lucide-react'
+import { CheckCircle, XCircle, Clock, MapPin, Navigation } from 'lucide-react'
 
 const STATUS_STYLE: Record<string, { bg: string; text: string; icon: React.ReactNode }> = {
   Pendiente: {
@@ -102,8 +102,12 @@ export default function OrdersPage() {
                   <div>
                     <p className="font-semibold text-gray-800">{order.nombreCliente}</p>
                     <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
-                      <MapPin className="w-3 h-3" />
-                      Local {order.localCliente} · {new Date(order.fechaPedido).toLocaleTimeString('es-MX', {
+                      {order.localCliente ? (
+                        <><MapPin className="w-3 h-3" />Local {order.localCliente}</>
+                      ) : (
+                        <><Navigation className="w-3 h-3" />{order.referenciaCliente}</>
+                      )}
+                      {' · '}{new Date(order.fechaPedido).toLocaleTimeString('es-MX', {
                         hour: '2-digit',
                         minute: '2-digit',
                       })}

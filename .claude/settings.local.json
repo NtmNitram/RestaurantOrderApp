@@ -3,7 +3,10 @@
     "allow": [
       "Bash(dotnet add *)",
       "Bash(dotnet build *)",
-      "Bash(del *)"
+      "Bash(del *)",
+      "Read(//c/Users/Martin/Desktop/repos//**)",
+      "Read(//c/Users/Martin/Desktop/repos/**)",
+      "Read(//c/Users/Martin/Desktop/**)"
     ]
   }
 }

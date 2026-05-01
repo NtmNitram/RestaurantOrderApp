@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { getDailySummary } from '../api/orders'
-import { TrendingUp, MapPin } from 'lucide-react'
+import { TrendingUp, MapPin, Navigation } from 'lucide-react'
 
 export default function DailySummaryPage() {
   const { data: summary, isLoading, isError } = useQuery({
@@ -71,8 +71,11 @@ export default function DailySummaryPage() {
                   <div>
                     <p className="font-semibold text-gray-800">{item.nombreCliente}</p>
                     <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
-                      <MapPin className="w-3 h-3" />
-                      Local {item.numeroLocal}
+                      {item.tipo === 'Plaza' ? (
+                        <><MapPin className="w-3 h-3" />Local {item.numeroLocal}</>
+                      ) : (
+                        <><Navigation className="w-3 h-3" />{item.referencia}</>
+                      )}
                     </p>
                   </div>
                 </div>
