@@ -10,3 +10,7 @@ export const createClient = async (dto: CreateClientDto): Promise<Client> => {
   const res = await apiClient.post<Client>('/clients', dto)
   return res.data
 }
+
+export const deleteClient = async (id: number): Promise<void> => {
+  await apiClient.delete(`/clients/${id}`)
+}

@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getClients, createClient } from '../api/clients'
+import { getClients, createClient, deleteClient } from '../api/clients'
 import { useNavigate } from 'react-router-dom'
-import { Plus, MapPin, Navigation, X, UserPlus } from 'lucide-react'
+import { Plus, MapPin, Navigation, X, UserPlus, Trash2 } from 'lucide-react'
 
 function NewClientModal({ onClose }: { onClose: () => void }) {
   const queryClient = useQueryClient()
@@ -156,7 +156,17 @@ function NewClientModal({ onClose }: { onClose: () => void }) {
 
 export default function ClientsPage() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [showModal, setShowModal] = useState(false)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null)
+
+  const deleteMutation = useMutation({
+    mutationFn: deleteClient,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['clients'] })
+      setConfirmDeleteId(null)
+    },
+  })
 
   const { data: clients, isLoading, isError } = useQuery({
     queryKey: ['clients'],
@@ -204,30 +214,64 @@ export default function ClientsPage() {
           {activos.map(client => (
             <div
               key={client.id}
-              className="bg-white rounded-xl border border-gray-200 p-4 flex items-center justify-between hover:shadow-md transition-shadow"
+              className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition-shadow"
             >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center text-orange-600 font-bold text-sm">
-                  {client.nombre.charAt(0)}
-                </div>
-                <div>
-                  <p className="font-semibold text-gray-800">{client.nombre}</p>
-                  <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
-                    {client.tipo === 'Plaza' ? (
-                      <><MapPin className="w-3 h-3" /> Local {client.numeroLocal}</>
-                    ) : (
-                      <><Navigation className="w-3 h-3" /> {client.referencia}</>
-                    )}
+              {confirmDeleteId === client.id ? (
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-gray-700 font-medium">
+                    ¿Eliminar a <span className="text-red-600">{client.nombre}</span>?
                   </p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setConfirmDeleteId(null)}
+                      className="px-3 py-1.5 rounded-lg border border-gray-300 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      onClick={() => deleteMutation.mutate(client.id)}
+                      disabled={deleteMutation.isPending}
+                      className="px-3 py-1.5 rounded-lg bg-red-500 text-white text-sm font-medium hover:bg-red-600 disabled:opacity-40 transition-colors"
+                    >
+                      {deleteMutation.isPending ? 'Eliminando...' : 'Sí, eliminar'}
+                    </button>
+                  </div>
                 </div>
-              </div>
-              <button
-                onClick={() => navigate(`/nuevo-pedido/${client.id}`)}
-                className="flex items-center gap-1.5 bg-orange-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-orange-600 transition-colors"
-              >
-                <Plus className="w-4 h-4" />
-                Nuevo pedido
-              </button>
+              ) : (
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center text-orange-600 font-bold text-sm">
+                      {client.nombre.charAt(0)}
+                    </div>
+                    <div>
+                      <p className="font-semibold text-gray-800">{client.nombre}</p>
+                      <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
+                        {client.tipo === 'Plaza' ? (
+                          <><MapPin className="w-3 h-3" /> Local {client.numeroLocal}</>
+                        ) : (
+                          <><Navigation className="w-3 h-3" /> {client.referencia}</>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setConfirmDeleteId(client.id)}
+                      className="w-9 h-9 flex items-center justify-center rounded-lg border border-gray-200 text-gray-400 hover:border-red-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+                      title="Eliminar cliente"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => navigate(`/nuevo-pedido/${client.id}`)}
+                      className="flex items-center gap-1.5 bg-orange-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-orange-600 transition-colors"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Nuevo pedido
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </div>
