@@ -35,6 +35,7 @@ export interface Order {
   referenciaCliente: string | null
   fechaPedido: string
   estado: string // "Pendiente" | "Entregado" | "Cancelado"
+  estadoCobro: string // "Pendiente de cobro" | "Cobrado"
   notas: string
   total: number
   articulos: OrderDetail[]

@@ -15,6 +15,10 @@ export const changeOrderStatus = async (id: number, estado: number): Promise<voi
   await apiClient.patch(`/Orders/${id}/status`, { estado })
 }
 
+export const changePaymentStatus = async (id: number, estadoCobro: number): Promise<void> => {
+  await apiClient.patch(`/Orders/${id}/payment-status`, { estadoCobro })
+}
+
 export const getDailySummary = async (): Promise<DailySummary> => {
   const res = await apiClient.get<DailySummary>('/Orders/summary/daily')
   return res.data

@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getOrders, changeOrderStatus } from '../api/orders'
+import { getOrders, changeOrderStatus, changePaymentStatus } from '../api/orders'
 import type { Order } from '../types'
-import { CheckCircle, XCircle, Clock, MapPin, Navigation } from 'lucide-react'
+import { CheckCircle, XCircle, Clock, MapPin, Navigation, Banknote } from 'lucide-react'
 
 const STATUS_STYLE: Record<string, { bg: string; text: string; icon: React.ReactNode }> = {
   Pendiente: {
@@ -31,8 +31,13 @@ export default function OrdersPage() {
     queryFn: getOrders,
   })
 
-  const mutation = useMutation({
+  const statusMutation = useMutation({
     mutationFn: ({ id, estado }: { id: number; estado: number }) => changeOrderStatus(id, estado),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['orders'] }),
+  })
+
+  const paymentMutation = useMutation({
+    mutationFn: ({ id, estadoCobro }: { id: number; estadoCobro: number }) => changePaymentStatus(id, estadoCobro),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['orders'] }),
   })
 
@@ -96,6 +101,8 @@ export default function OrdersPage() {
           {visibles.map((order: Order) => {
             const status = STATUS_STYLE[order.estado] ?? STATUS_STYLE['Pendiente']
             const isPendiente = order.estado === 'Pendiente'
+            const isEntregado = order.estado === 'Entregado'
+            const isCobrado = order.estadoCobro === 'Cobrado'
             return (
               <div key={order.id} className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition-shadow">
                 <div className="flex items-start justify-between mb-3">
@@ -139,22 +146,39 @@ export default function OrdersPage() {
                   {isPendiente && (
                     <div className="flex gap-2">
                       <button
-                        onClick={() => mutation.mutate({ id: order.id, estado: 1 })}
-                        disabled={mutation.isPending}
+                        onClick={() => statusMutation.mutate({ id: order.id, estado: 1 })}
+                        disabled={statusMutation.isPending}
                         className="flex items-center gap-1.5 bg-green-500 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-green-600 disabled:opacity-50 transition-colors"
                       >
                         <CheckCircle className="w-3.5 h-3.5" />
                         Entregar
                       </button>
                       <button
-                        onClick={() => mutation.mutate({ id: order.id, estado: 2 })}
-                        disabled={mutation.isPending}
+                        onClick={() => statusMutation.mutate({ id: order.id, estado: 2 })}
+                        disabled={statusMutation.isPending}
                         className="flex items-center gap-1.5 bg-red-50 text-red-600 border border-red-200 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-red-100 disabled:opacity-50 transition-colors"
                       >
                         <XCircle className="w-3.5 h-3.5" />
                         Cancelar
                       </button>
                     </div>
+                  )}
+                  {isEntregado && (
+                    isCobrado ? (
+                      <span className="flex items-center gap-1.5 text-green-700 bg-green-100 px-3 py-1.5 rounded-lg text-sm font-medium">
+                        <Banknote className="w-3.5 h-3.5" />
+                        Cobrado
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => paymentMutation.mutate({ id: order.id, estadoCobro: 1 })}
+                        disabled={paymentMutation.isPending}
+                        className="flex items-center gap-1.5 bg-orange-500 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-orange-600 disabled:opacity-50 transition-colors"
+                      >
+                        <Banknote className="w-3.5 h-3.5" />
+                        Cobrar
+                      </button>
+                    )
                   )}
                 </div>
               </div>
