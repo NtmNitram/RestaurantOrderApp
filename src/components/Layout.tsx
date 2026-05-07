@@ -10,7 +10,7 @@ export default function Layout() {
   const isDueño = role === 'Dueño'
 
   const { data: orders } = useQuery({ queryKey: ['orders'], queryFn: getOrders })
-  const pendingCount = orders?.filter(o => o.estado === 'Pendiente').length ?? 0
+  const pendingCount = orders?.filter(o => o.estadoCobro !== 'Cobrado' && o.estado !== 'Cancelado').length ?? 0
 
   const handleLogout = () => {
     logout()

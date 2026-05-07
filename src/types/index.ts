@@ -48,6 +48,7 @@ export interface DailySummaryCliente {
   numeroLocal: string | null
   referencia: string | null
   totalACobrar: number
+  totalCobrado: number
 }
 
 export interface DailySummary {
@@ -55,6 +56,7 @@ export interface DailySummary {
   totalPedidos: number
   clientes: DailySummaryCliente[]
   totalGeneral: number
+  totalCobrado: number
 }
 
 // Lo que se manda al crear un pedido

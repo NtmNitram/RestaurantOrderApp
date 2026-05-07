@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { getDailySummary } from '../api/orders'
-import { TrendingUp, MapPin, Navigation } from 'lucide-react'
+import { TrendingUp, MapPin, Navigation, Banknote, Clock } from 'lucide-react'
 
 export default function DailySummaryPage() {
   const { data: summary, isLoading, isError } = useQuery({
@@ -48,9 +48,23 @@ export default function DailySummaryPage() {
               <p className="text-sm text-gray-500">Pedidos del día</p>
               <p className="text-3xl font-bold text-gray-800 mt-1">{summary!.totalPedidos}</p>
             </div>
-            <div className="bg-orange-500 rounded-xl p-4">
-              <p className="text-sm text-orange-100">Total del día</p>
-              <p className="text-3xl font-bold text-white mt-1">${summary!.totalGeneral.toFixed(2)}</p>
+            <div className="bg-white rounded-xl border border-gray-200 p-4">
+              <p className="text-sm text-gray-500">Total del día</p>
+              <p className="text-2xl font-bold text-gray-800 mt-1">${summary!.totalGeneral.toFixed(2)}</p>
+            </div>
+            <div className="bg-orange-500 rounded-xl p-4 flex items-center gap-3">
+              <Clock className="w-6 h-6 text-orange-100 shrink-0" />
+              <div>
+                <p className="text-xs text-orange-100">Por cobrar</p>
+                <p className="text-2xl font-bold text-white">${(summary!.totalGeneral - summary!.totalCobrado).toFixed(2)}</p>
+              </div>
+            </div>
+            <div className="bg-green-500 rounded-xl p-4 flex items-center gap-3">
+              <Banknote className="w-6 h-6 text-green-100 shrink-0" />
+              <div>
+                <p className="text-xs text-green-100">Cobrado</p>
+                <p className="text-2xl font-bold text-white">${summary!.totalCobrado.toFixed(2)}</p>
+              </div>
             </div>
           </div>
 
@@ -62,24 +76,36 @@ export default function DailySummaryPage() {
             {summary!.clientes.map(item => (
               <div
                 key={item.clienteId}
-                className="bg-white rounded-xl border border-gray-200 p-4 flex items-center justify-between hover:shadow-md transition-shadow"
+                className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition-shadow"
               >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center text-orange-600 font-bold text-sm">
-                    {item.nombreCliente.charAt(0)}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center text-orange-600 font-bold text-sm">
+                      {item.nombreCliente.charAt(0)}
+                    </div>
+                    <div>
+                      <p className="font-semibold text-gray-800">{item.nombreCliente}</p>
+                      <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
+                        {item.tipo === 'Plaza' ? (
+                          <><MapPin className="w-3 h-3" />Local {item.numeroLocal}</>
+                        ) : (
+                          <><Navigation className="w-3 h-3" />{item.referencia}</>
+                        )}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-semibold text-gray-800">{item.nombreCliente}</p>
-                    <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
-                      {item.tipo === 'Plaza' ? (
-                        <><MapPin className="w-3 h-3" />Local {item.numeroLocal}</>
-                      ) : (
-                        <><Navigation className="w-3 h-3" />{item.referencia}</>
-                      )}
-                    </p>
+                  <div className="text-right">
+                    {item.totalACobrar > 0 && (
+                      <p className="text-sm font-semibold text-orange-600">${item.totalACobrar.toFixed(2)} por cobrar</p>
+                    )}
+                    {item.totalCobrado > 0 && (
+                      <p className="text-sm font-semibold text-green-600">${item.totalCobrado.toFixed(2)} cobrado</p>
+                    )}
+                    {item.totalACobrar === 0 && item.totalCobrado === 0 && (
+                      <p className="text-sm text-gray-400">$0.00</p>
+                    )}
                   </div>
                 </div>
-                <span className="text-lg font-bold text-gray-800">${item.totalACobrar.toFixed(2)}</span>
               </div>
             ))}
           </div>

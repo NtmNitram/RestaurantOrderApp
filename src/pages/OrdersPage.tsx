@@ -53,7 +53,7 @@ export default function OrdersPage() {
     </div>
   )
 
-  const pendientes = orders?.filter(o => o.estado === 'Pendiente') ?? []
+  const pendientes = orders?.filter(o => o.estadoCobro !== 'Cobrado' && o.estado !== 'Cancelado') ?? []
   const visibles = tab === 'pendientes' ? pendientes : (orders ?? [])
 
   return (
