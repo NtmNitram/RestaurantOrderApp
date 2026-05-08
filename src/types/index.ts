@@ -3,10 +3,12 @@
 export interface Client {
   id: number
   nombre: string
-  tipo: 'Plaza' | 'Externo'
+  tipo: 'Plaza' | 'Externo' | 'Domicilio'
   numeroLocal: string | null
   referencia: string | null
   telefono: string | null
+  direccionEntrega: string | null
+  referenciaDomicilio: string | null
   activo: boolean
 }
 
@@ -68,8 +70,10 @@ export interface CreateOrderDto {
 
 export interface CreateClientDto {
   nombre: string
-  tipo: 'Plaza' | 'Externo'
+  tipo: 'Plaza' | 'Externo' | 'Domicilio'
   numeroLocal?: string
   referencia?: string
   telefono?: string
+  direccionEntrega?: string
+  referenciaDomicilio?: string
 }

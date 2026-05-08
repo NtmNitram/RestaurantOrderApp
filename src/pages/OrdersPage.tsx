@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getOrders, changeOrderStatus, changePaymentStatus } from '../api/orders'
+import { getOrders, changeOrderStatus, changePaymentStatus, addItemsToOrder } from '../api/orders'
+import { getMenuItems } from '../api/menuItems'
 import type { Order } from '../types'
-import { CheckCircle, XCircle, Clock, MapPin, Navigation, Banknote } from 'lucide-react'
+import { CheckCircle, XCircle, Clock, MapPin, Navigation, Banknote, PlusCircle, Plus, Minus, X } from 'lucide-react'
 
 const STATUS_STYLE: Record<string, { bg: string; text: string; icon: React.ReactNode }> = {
   Pendiente: {
@@ -22,8 +23,91 @@ const STATUS_STYLE: Record<string, { bg: string; text: string; icon: React.React
   },
 }
 
+function AddItemsModal({ order, onClose }: { order: Order; onClose: () => void }) {
+  const queryClient = useQueryClient()
+  const [items, setItems] = useState<Record<number, number>>({})
+
+  const { data: menuItems, isLoading } = useQuery({ queryKey: ['menuItems'], queryFn: getMenuItems })
+
+  const mutation = useMutation({
+    mutationFn: () => addItemsToOrder(order.id, Object.entries(items).map(([id, qty]) => ({ articuloId: Number(id), cantidad: qty }))),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['orders'] })
+      queryClient.invalidateQueries({ queryKey: ['daily-summary'] })
+      onClose()
+    },
+  })
+
+  const changeQty = (articuloId: number, delta: number) => {
+    setItems(prev => {
+      const next = (prev[articuloId] ?? 0) + delta
+      if (next <= 0) { const { [articuloId]: _, ...rest } = prev; return rest }
+      return { ...prev, [articuloId]: next }
+    })
+  }
+
+  const cantidadItems = Object.values(items).reduce((a, b) => a + b, 0)
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="relative bg-white w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl shadow-xl max-h-[85vh] flex flex-col">
+        <div className="flex items-center justify-between p-5 border-b border-gray-100">
+          <div>
+            <h2 className="text-base font-bold text-gray-800">Agregar al pedido</h2>
+            <p className="text-xs text-gray-500 mt-0.5">{order.nombreCliente}</p>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-500">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="overflow-y-auto flex-1 p-4 space-y-2">
+          {isLoading ? (
+            <p className="text-center text-gray-400 py-8">Cargando menú...</p>
+          ) : (
+            menuItems?.filter(m => m.disponible).map(item => (
+              <div key={item.id} className="flex items-center justify-between bg-gray-50 rounded-xl px-3 py-2.5">
+                <div>
+                  <p className="text-sm font-medium text-gray-800">{item.nombre}</p>
+                  <p className="text-xs text-orange-600 font-medium">${item.precio.toFixed(2)}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => changeQty(item.id, -1)} disabled={!items[item.id]}
+                    className="w-7 h-7 rounded-full border border-gray-300 text-gray-600 hover:bg-gray-100 disabled:opacity-30 flex items-center justify-center">
+                    <Minus className="w-3 h-3" />
+                  </button>
+                  <span className="w-5 text-center text-sm font-bold text-gray-800">{items[item.id] ?? 0}</span>
+                  <button onClick={() => changeQty(item.id, 1)}
+                    className="w-7 h-7 rounded-full bg-orange-500 text-white hover:bg-orange-600 flex items-center justify-center">
+                    <Plus className="w-3 h-3" />
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        <div className="p-4 border-t border-gray-100">
+          {mutation.isError && (
+            <p className="text-xs text-red-600 mb-2">Error al agregar. Intenta de nuevo.</p>
+          )}
+          <button
+            onClick={() => mutation.mutate()}
+            disabled={cantidadItems === 0 || mutation.isPending}
+            className="w-full bg-orange-500 text-white py-3 rounded-xl font-medium hover:bg-orange-600 disabled:opacity-40 transition-colors"
+          >
+            {mutation.isPending ? 'Agregando...' : `Agregar ${cantidadItems > 0 ? `(${cantidadItems})` : ''}`}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function OrdersPage() {
   const [tab, setTab] = useState<'pendientes' | 'todos'>('pendientes')
+  const [addItemsOrder, setAddItemsOrder] = useState<Order | null>(null)
   const queryClient = useQueryClient()
 
   const { data: orders, isLoading, isError } = useQuery({
@@ -58,6 +142,8 @@ export default function OrdersPage() {
 
   return (
     <div>
+      {addItemsOrder && <AddItemsModal order={addItemsOrder} onClose={() => setAddItemsOrder(null)} />}
+
       <div className="mb-4">
         <h1 className="text-2xl font-bold text-gray-800">Pedidos del día</h1>
       </div>
@@ -145,6 +231,13 @@ export default function OrdersPage() {
                   <span className="font-bold text-gray-800 text-lg">${order.total.toFixed(2)}</span>
                   {isPendiente && (
                     <div className="flex gap-2">
+                      <button
+                        onClick={() => setAddItemsOrder(order)}
+                        className="w-9 h-9 flex items-center justify-center rounded-lg border border-orange-200 text-orange-500 hover:bg-orange-50 transition-colors"
+                        title="Agregar más artículos"
+                      >
+                        <PlusCircle className="w-4 h-4" />
+                      </button>
                       <button
                         onClick={() => statusMutation.mutate({ id: order.id, estado: 1 })}
                         disabled={statusMutation.isPending}

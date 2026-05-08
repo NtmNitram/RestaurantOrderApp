@@ -6,7 +6,13 @@
       "Bash(del *)",
       "Read(//c/Users/Martin/Desktop/repos//**)",
       "Read(//c/Users/Martin/Desktop/repos/**)",
-      "Read(//c/Users/Martin/Desktop/**)"
+      "Read(//c/Users/Martin/Desktop/**)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\Martin\\\\Desktop\\\\repos\\\\RestaurantOrderApp\\\\src\" -Recurse -Force)",
+      "Bash(Select-Object FullName)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(Test-Path *)"
     ]
   }
 }

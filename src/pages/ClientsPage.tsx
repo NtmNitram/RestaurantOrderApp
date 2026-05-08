@@ -2,15 +2,17 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getClients, createClient, deleteClient } from '../api/clients'
 import { useNavigate } from 'react-router-dom'
-import { Plus, MapPin, Navigation, X, UserPlus, Trash2 } from 'lucide-react'
+import { Plus, MapPin, Navigation, X, UserPlus, Trash2, Phone, Home } from 'lucide-react'
 
 function NewClientModal({ onClose }: { onClose: () => void }) {
   const queryClient = useQueryClient()
   const [nombre, setNombre] = useState('')
-  const [tipo, setTipo] = useState<'Plaza' | 'Externo'>('Plaza')
+  const [tipo, setTipo] = useState<'Plaza' | 'Externo' | 'Domicilio'>('Plaza')
   const [numeroLocal, setNumeroLocal] = useState('')
   const [referencia, setReferencia] = useState('')
   const [telefono, setTelefono] = useState('')
+  const [direccionEntrega, setDireccionEntrega] = useState('')
+  const [referenciaDomicilio, setReferenciaDomicilio] = useState('')
 
   const mutation = useMutation({
     mutationFn: createClient,
@@ -20,8 +22,11 @@ function NewClientModal({ onClose }: { onClose: () => void }) {
     },
   })
 
-  const isValid = nombre.trim() &&
-    (tipo === 'Plaza' ? numeroLocal.trim() : referencia.trim())
+  const isValid = nombre.trim() && (
+    tipo === 'Plaza' ? numeroLocal.trim() :
+    tipo === 'Externo' ? referencia.trim() :
+    direccionEntrega.trim() && telefono.trim()
+  )
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -32,13 +37,15 @@ function NewClientModal({ onClose }: { onClose: () => void }) {
       numeroLocal: tipo === 'Plaza' ? numeroLocal.trim() : undefined,
       referencia: tipo === 'Externo' ? referencia.trim() : undefined,
       telefono: telefono.trim() || undefined,
+      direccionEntrega: tipo === 'Domicilio' ? direccionEntrega.trim() : undefined,
+      referenciaDomicilio: tipo === 'Domicilio' ? referenciaDomicilio.trim() || undefined : undefined,
     })
   }
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative bg-white w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl p-6 shadow-xl">
+      <div className="relative bg-white w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl p-6 shadow-xl max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-bold text-gray-800">Nuevo cliente</h2>
           <button
@@ -52,7 +59,7 @@ function NewClientModal({ onClose }: { onClose: () => void }) {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Nombre del negocio <span className="text-red-500">*</span>
+              Nombre del negocio / cliente <span className="text-red-500">*</span>
             </label>
             <input
               autoFocus
@@ -69,32 +76,24 @@ function NewClientModal({ onClose }: { onClose: () => void }) {
               Tipo de cliente <span className="text-red-500">*</span>
             </label>
             <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setTipo('Plaza')}
-                className={`flex-1 py-2 rounded-xl border text-sm font-medium transition-colors ${
-                  tipo === 'Plaza'
-                    ? 'bg-orange-500 text-white border-orange-500'
-                    : 'border-gray-300 text-gray-600 hover:border-orange-300'
-                }`}
-              >
-                Dentro de la plaza
-              </button>
-              <button
-                type="button"
-                onClick={() => setTipo('Externo')}
-                className={`flex-1 py-2 rounded-xl border text-sm font-medium transition-colors ${
-                  tipo === 'Externo'
-                    ? 'bg-orange-500 text-white border-orange-500'
-                    : 'border-gray-300 text-gray-600 hover:border-orange-300'
-                }`}
-              >
-                Externo al sector
-              </button>
+              {(['Plaza', 'Externo', 'Domicilio'] as const).map(t => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => setTipo(t)}
+                  className={`flex-1 py-2 rounded-xl border text-xs font-medium transition-colors ${
+                    tipo === t
+                      ? 'bg-orange-500 text-white border-orange-500'
+                      : 'border-gray-300 text-gray-600 hover:border-orange-300'
+                  }`}
+                >
+                  {t === 'Plaza' ? 'Plaza' : t === 'Externo' ? 'Externo' : 'Domicilio'}
+                </button>
+              ))}
             </div>
           </div>
 
-          {tipo === 'Plaza' ? (
+          {tipo === 'Plaza' && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Número de local <span className="text-red-500">*</span>
@@ -107,7 +106,9 @@ function NewClientModal({ onClose }: { onClose: () => void }) {
                 className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
               />
             </div>
-          ) : (
+          )}
+
+          {tipo === 'Externo' && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Referencia de ubicación <span className="text-red-500">*</span>
@@ -122,9 +123,39 @@ function NewClientModal({ onClose }: { onClose: () => void }) {
             </div>
           )}
 
+          {tipo === 'Domicilio' && (
+            <>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Dirección de entrega <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={direccionEntrega}
+                  onChange={e => setDireccionEntrega(e.target.value)}
+                  placeholder="Ej. Calle Morelos 45, Col. Centro"
+                  className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Referencias <span className="text-gray-400 font-normal">(opcional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={referenciaDomicilio}
+                  onChange={e => setReferenciaDomicilio(e.target.value)}
+                  placeholder="Ej. Depto 3B, puerta azul"
+                  className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                />
+              </div>
+            </>
+          )}
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Teléfono <span className="text-gray-400 font-normal">(opcional)</span>
+              Teléfono{tipo === 'Domicilio' && <span className="text-red-500"> *</span>}
+              {tipo !== 'Domicilio' && <span className="text-gray-400 font-normal"> (opcional)</span>}
             </label>
             <input
               type="tel"
@@ -150,6 +181,31 @@ function NewClientModal({ onClose }: { onClose: () => void }) {
           </button>
         </form>
       </div>
+    </div>
+  )
+}
+
+function ClientSubtitle({ client }: { client: { tipo: string; numeroLocal: string | null; referencia: string | null; direccionEntrega: string | null; telefono: string | null } }) {
+  if (client.tipo === 'Plaza') return (
+    <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
+      <MapPin className="w-3 h-3" /> Local {client.numeroLocal}
+    </p>
+  )
+  if (client.tipo === 'Externo') return (
+    <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
+      <Navigation className="w-3 h-3" /> {client.referencia}
+    </p>
+  )
+  return (
+    <div className="mt-0.5 space-y-0.5">
+      <p className="text-xs text-gray-500 flex items-center gap-1">
+        <Home className="w-3 h-3" /> {client.direccionEntrega}
+      </p>
+      {client.telefono && (
+        <p className="text-xs text-gray-500 flex items-center gap-1">
+          <Phone className="w-3 h-3" /> {client.telefono}
+        </p>
+      )}
     </div>
   )
 }
@@ -240,25 +296,27 @@ export default function ClientsPage() {
               ) : (
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center text-orange-600 font-bold text-sm">
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${
+                      client.tipo === 'Domicilio' ? 'bg-blue-100 text-blue-600' : 'bg-orange-100 text-orange-600'
+                    }`}>
                       {client.nombre.charAt(0)}
                     </div>
                     <div>
-                      <p className="font-semibold text-gray-800">{client.nombre}</p>
-                      <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
-                        {client.tipo === 'Plaza' ? (
-                          <><MapPin className="w-3 h-3" /> Local {client.numeroLocal}</>
-                        ) : (
-                          <><Navigation className="w-3 h-3" /> {client.referencia}</>
+                      <div className="flex items-center gap-2">
+                        <p className="font-semibold text-gray-800">{client.nombre}</p>
+                        {client.tipo === 'Domicilio' && (
+                          <span className="text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full font-medium">
+                            Domicilio
+                          </span>
                         )}
-                      </p>
+                      </div>
+                      <ClientSubtitle client={client} />
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => setConfirmDeleteId(client.id)}
                       className="w-9 h-9 flex items-center justify-center rounded-lg border border-gray-200 text-gray-400 hover:border-red-300 hover:text-red-500 hover:bg-red-50 transition-colors"
-                      title="Eliminar cliente"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
