@@ -3,7 +3,7 @@
 export interface Client {
   id: number
   nombre: string
-  tipo: 'Plaza' | 'Externo' | 'Domicilio'
+  tipo: 'Plaza' | 'Externo' | 'Domicilio' | 'Mesa'
   numeroLocal: string | null
   referencia: string | null
   telefono: string | null
@@ -70,7 +70,7 @@ export interface CreateOrderDto {
 
 export interface CreateClientDto {
   nombre: string
-  tipo: 'Plaza' | 'Externo' | 'Domicilio'
+  tipo: 'Plaza' | 'Externo' | 'Domicilio' | 'Mesa'
   numeroLocal?: string
   referencia?: string
   telefono?: string

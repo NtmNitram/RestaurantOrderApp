@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getClients, createClient, deleteClient } from '../api/clients'
 import { useNavigate } from 'react-router-dom'
-import { Plus, MapPin, Navigation, X, UserPlus, Trash2, Phone, Home } from 'lucide-react'
+import { Plus, MapPin, Navigation, X, UserPlus, Trash2, Phone, Home, UtensilsCrossed } from 'lucide-react'
 
 function NewClientModal({ onClose }: { onClose: () => void }) {
   const queryClient = useQueryClient()
@@ -213,6 +213,7 @@ function ClientSubtitle({ client }: { client: { tipo: string; numeroLocal: strin
 export default function ClientsPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const [tab, setTab] = useState<'mesas' | 'clientes'>('mesas')
   const [showModal, setShowModal] = useState(false)
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null)
 
@@ -242,32 +243,57 @@ export default function ClientsPage() {
   )
 
   const activos = clients?.filter(c => c.activo) ?? []
+  const mesas = activos.filter(c => c.tipo === 'Mesa').sort((a, b) => {
+    const n1 = parseInt(a.nombre.replace('Mesa ', ''))
+    const n2 = parseInt(b.nombre.replace('Mesa ', ''))
+    return n1 - n2
+  })
+  const clientesNormales = activos.filter(c => c.tipo !== 'Mesa')
+  const visibles = tab === 'mesas' ? mesas : clientesNormales
 
   return (
     <div>
       {showModal && <NewClientModal onClose={() => setShowModal(false)} />}
 
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800">Clientes activos</h1>
-          <p className="text-sm text-gray-500 mt-1">{activos.length} cliente(s) disponibles hoy</p>
-        </div>
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-2xl font-bold text-gray-800">Clientes</h1>
+        {tab === 'clientes' && (
+          <button
+            onClick={() => setShowModal(true)}
+            className="flex items-center gap-1.5 bg-orange-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-orange-600 transition-colors"
+          >
+            <UserPlus className="w-4 h-4" />
+            Nuevo cliente
+          </button>
+        )}
+      </div>
+
+      <div className="flex gap-1 bg-gray-200 p-1 rounded-lg mb-5">
         <button
-          onClick={() => setShowModal(true)}
-          className="flex items-center gap-1.5 bg-orange-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-orange-600 transition-colors"
+          onClick={() => setTab('mesas')}
+          className={`flex-1 py-2 rounded-md text-sm font-medium transition-colors ${
+            tab === 'mesas' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+          }`}
         >
-          <UserPlus className="w-4 h-4" />
-          Nuevo cliente
+          Mesas ({mesas.length})
+        </button>
+        <button
+          onClick={() => setTab('clientes')}
+          className={`flex-1 py-2 rounded-md text-sm font-medium transition-colors ${
+            tab === 'clientes' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          Clientes ({clientesNormales.length})
         </button>
       </div>
 
-      {activos.length === 0 ? (
+      {visibles.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
-          <p className="text-lg">No hay clientes activos</p>
+          <p className="text-lg">{tab === 'mesas' ? 'No hay mesas configuradas' : 'No hay clientes activos'}</p>
         </div>
       ) : (
         <div className="grid gap-3">
-          {activos.map(client => (
+          {visibles.map(client => (
             <div
               key={client.id}
               className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition-shadow"
@@ -297,9 +323,14 @@ export default function ClientsPage() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${
-                      client.tipo === 'Domicilio' ? 'bg-blue-100 text-blue-600' : 'bg-orange-100 text-orange-600'
+                      client.tipo === 'Mesa' ? 'bg-gray-100 text-gray-600' :
+                      client.tipo === 'Domicilio' ? 'bg-blue-100 text-blue-600' :
+                      'bg-orange-100 text-orange-600'
                     }`}>
-                      {client.nombre.charAt(0)}
+                      {client.tipo === 'Mesa'
+                        ? <UtensilsCrossed className="w-4 h-4" />
+                        : client.nombre.charAt(0)
+                      }
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
@@ -310,16 +341,18 @@ export default function ClientsPage() {
                           </span>
                         )}
                       </div>
-                      <ClientSubtitle client={client} />
+                      {client.tipo !== 'Mesa' && <ClientSubtitle client={client} />}
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setConfirmDeleteId(client.id)}
-                      className="w-9 h-9 flex items-center justify-center rounded-lg border border-gray-200 text-gray-400 hover:border-red-300 hover:text-red-500 hover:bg-red-50 transition-colors"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    {client.tipo !== 'Mesa' && (
+                      <button
+                        onClick={() => setConfirmDeleteId(client.id)}
+                        className="w-9 h-9 flex items-center justify-center rounded-lg border border-gray-200 text-gray-400 hover:border-red-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
                     <button
                       onClick={() => navigate(`/nuevo-pedido/${client.id}`)}
                       className="flex items-center gap-1.5 bg-orange-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-orange-600 transition-colors"
