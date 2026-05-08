@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getClients, createClient, deleteClient } from '../api/clients'
 import { useNavigate } from 'react-router-dom'
-import { Plus, MapPin, Navigation, X, UserPlus, Trash2, Phone, Home, UtensilsCrossed } from 'lucide-react'
+import { Plus, MapPin, Navigation, X, UserPlus, Trash2, Phone, Home, UtensilsCrossed, Search } from 'lucide-react'
 
 function NewClientModal({ onClose }: { onClose: () => void }) {
   const queryClient = useQueryClient()
@@ -214,6 +214,7 @@ export default function ClientsPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [tab, setTab] = useState<'mesas' | 'clientes'>('mesas')
+  const [busqueda, setBusqueda] = useState('')
   const [showModal, setShowModal] = useState(false)
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null)
 
@@ -249,7 +250,17 @@ export default function ClientsPage() {
     return n1 - n2
   })
   const clientesNormales = activos.filter(c => c.tipo !== 'Mesa')
-  const visibles = tab === 'mesas' ? mesas : clientesNormales
+  const q = busqueda.trim().toLowerCase()
+  const clientesFiltrados = q
+    ? clientesNormales.filter(c =>
+        c.nombre.toLowerCase().includes(q) ||
+        c.telefono?.toLowerCase().includes(q) ||
+        c.numeroLocal?.toLowerCase().includes(q) ||
+        c.referencia?.toLowerCase().includes(q) ||
+        c.direccionEntrega?.toLowerCase().includes(q)
+      )
+    : clientesNormales
+  const visibles = tab === 'mesas' ? mesas : clientesFiltrados
 
   return (
     <div>
@@ -268,9 +279,30 @@ export default function ClientsPage() {
         )}
       </div>
 
+      {tab === 'clientes' && (
+        <div className="relative mb-4">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input
+            type="text"
+            value={busqueda}
+            onChange={e => setBusqueda(e.target.value)}
+            placeholder="Buscar por nombre, teléfono, dirección..."
+            className="w-full pl-9 pr-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+          />
+          {busqueda && (
+            <button
+              onClick={() => setBusqueda('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+      )}
+
       <div className="flex gap-1 bg-gray-200 p-1 rounded-lg mb-5">
         <button
-          onClick={() => setTab('mesas')}
+          onClick={() => { setTab('mesas'); setBusqueda('') }}
           className={`flex-1 py-2 rounded-md text-sm font-medium transition-colors ${
             tab === 'mesas' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'
           }`}
