@@ -99,7 +99,7 @@ function NewClientModal({ onClose }: { onClose: () => void }) {
                 type="text"
                 value={referencia}
                 onChange={e => setReferencia(e.target.value)}
-                placeholder="Ej. Av. Ferrocarril 14, frente al metro"
+                placeholder="Ej. Local 12, frente a: la farmacia"
                 className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
               />
             </div>
