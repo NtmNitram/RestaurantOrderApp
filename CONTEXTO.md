@@ -56,7 +56,7 @@ Host=localhost;Port=5432;Database=restaurant_orders;Username=postgres;Password=T
 
 ---
 
-## Módulo 1 — Estado actual (al 2026-05-07)
+## Módulo 1 — Estado actual (al 2026-05-13)
 
 ### Funcionalidades implementadas
 
@@ -72,6 +72,7 @@ Host=localhost;Port=5432;Database=restaurant_orders;Username=postgres;Password=T
 | Toma de pedido por cliente o mesa | ✅ | ✅ |
 | Agregar artículos a pedido Pendiente existente | ✅ | ✅ |
 | Buscador de platillos en modal "Agregar al pedido" | ✅ | — |
+| Buscador de platillos en pantalla "Nuevo pedido" | ✅ | — |
 | Listado de pedidos del día con buscador | ✅ | ✅ |
 | Marcar pedido Entregado / Cancelado | ✅ | ✅ |
 | Estado de cobro por pedido (Cobrar → Cobrado) | ✅ | ✅ |
@@ -221,6 +222,13 @@ En Vercel: `VITE_API_URL=https://tu-url-de-railway.up.railway.app/api`
 2. Copiar connection string (formato Npgsql): `Host=...;Port=...;Database=...;Username=...;Password=...`
 3. Pegarlo como variable de entorno `ConnectionStrings__DefaultConnection` en el servicio del backend
 4. Con PostgreSQL los datos persisten entre reinicios del contenedor
+
+---
+
+## Bugs resueltos (sesión 2026-05-13)
+
+- **RestaurantId en Order:** `OrderService.CreateAsync` no asignaba `RestaurantId` al crear un pedido — quedaba en 0 y fallaba la FK de PostgreSQL. Solución: inyectar `ICurrentRestaurantService` en `OrderService` y asignarlo en la creación.
+- **DateTime UTC:** PostgreSQL con Npgsql requiere `DateTime.UtcNow`, no `DateTime.Now` (hora local). Corregido en `Order.cs`, `OrderService.cs` y `OrdersController.cs`.
 
 ---
 

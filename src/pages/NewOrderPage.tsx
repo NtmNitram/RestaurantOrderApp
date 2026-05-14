@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getMenuItems } from '../api/menuItems'
 import { getClients } from '../api/clients'
 import { createOrder } from '../api/orders'
-import { ArrowLeft, Plus, Minus, ShoppingBag } from 'lucide-react'
+import { ArrowLeft, Plus, Minus, ShoppingBag, Search } from 'lucide-react'
 
 export default function NewOrderPage() {
   const { clientId } = useParams<{ clientId: string }>()
@@ -13,6 +13,7 @@ export default function NewOrderPage() {
 
   const [items, setItems] = useState<Record<number, number>>({})
   const [notas, setNotas] = useState('')
+  const [busqueda, setBusqueda] = useState('')
 
   const { data: clients } = useQuery({ queryKey: ['clients'], queryFn: getClients })
   const { data: menuItems, isLoading } = useQuery({ queryKey: ['menuItems'], queryFn: getMenuItems })
@@ -84,8 +85,19 @@ export default function NewOrderPage() {
         </p>
       </div>
 
+      <div className="relative mb-4">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+        <input
+          type="text"
+          placeholder="Buscar platillo..."
+          value={busqueda}
+          onChange={e => setBusqueda(e.target.value)}
+          className="w-full pl-9 pr-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+        />
+      </div>
+
       <div className="grid gap-3 mb-4">
-        {menuItems?.filter(m => m.disponible).map(item => (
+        {menuItems?.filter(m => m.disponible && m.nombre.toLowerCase().includes(busqueda.toLowerCase())).map(item => (
           <div
             key={item.id}
             className="bg-white rounded-xl border border-gray-200 p-4 flex items-center justify-between"
