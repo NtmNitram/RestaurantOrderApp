@@ -7,6 +7,7 @@ import ClientsPage from './pages/ClientsPage'
 import NewOrderPage from './pages/NewOrderPage'
 import OrdersPage from './pages/OrdersPage'
 import DailySummaryPage from './pages/DailySummaryPage'
+import MenuPage from './pages/MenuPage'
 
 export default function App() {
   return (
@@ -26,6 +27,14 @@ export default function App() {
             <Route path="clientes" element={<ClientsPage />} />
             <Route path="nuevo-pedido/:clientId" element={<NewOrderPage />} />
             <Route path="pedidos" element={<OrdersPage />} />
+            <Route
+              path="menu"
+              element={
+                <ProtectedRoute role="Dueño">
+                  <MenuPage />
+                </ProtectedRoute>
+              }
+            />
             <Route
               path="resumen"
               element={

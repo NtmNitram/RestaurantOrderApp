@@ -60,6 +60,19 @@ export interface DailySummary {
   totalCobrado: number
 }
 
+export interface CreateMenuItemDto {
+  nombre: string
+  descripcion?: string
+  precio: number
+}
+
+export interface UpdateMenuItemDto {
+  nombre: string
+  descripcion?: string
+  precio: number
+  disponible: boolean
+}
+
 // Lo que se manda al crear un pedido
 export interface CreateOrderDto {
   clienteId: number

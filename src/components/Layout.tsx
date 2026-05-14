@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { UtensilsCrossed, Users, ClipboardList, BarChart3, LogOut } from 'lucide-react'
+import { UtensilsCrossed, Users, ClipboardList, BarChart3, LogOut, BookOpen } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '../context/AuthContext'
 import { getOrders } from '../api/orders'
@@ -20,7 +20,10 @@ export default function Layout() {
   const navLinks = [
     { to: '/clientes', label: 'Clientes', icon: <Users className="w-5 h-5" /> },
     { to: '/pedidos', label: 'Pedidos', icon: <ClipboardList className="w-5 h-5" />, badge: pendingCount },
-    ...(isDueño ? [{ to: '/resumen', label: 'Resumen', icon: <BarChart3 className="w-5 h-5" /> }] : []),
+    ...(isDueño ? [
+      { to: '/menu', label: 'Menú', icon: <BookOpen className="w-5 h-5" /> },
+      { to: '/resumen', label: 'Resumen', icon: <BarChart3 className="w-5 h-5" /> },
+    ] : []),
   ]
 
   return (
