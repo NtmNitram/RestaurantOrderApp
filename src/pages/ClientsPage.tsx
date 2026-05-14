@@ -7,8 +7,7 @@ import { Plus, MapPin, Navigation, X, UserPlus, Trash2, Phone, Home, UtensilsCro
 function NewClientModal({ onClose }: { onClose: () => void }) {
   const queryClient = useQueryClient()
   const [nombre, setNombre] = useState('')
-  const [tipo, setTipo] = useState<'Plaza' | 'Externo' | 'Domicilio'>('Plaza')
-  const [numeroLocal, setNumeroLocal] = useState('')
+  const [tipo, setTipo] = useState<'Externo' | 'Domicilio'>('Externo')
   const [referencia, setReferencia] = useState('')
   const [telefono, setTelefono] = useState('')
   const [direccionEntrega, setDireccionEntrega] = useState('')
@@ -23,8 +22,7 @@ function NewClientModal({ onClose }: { onClose: () => void }) {
   })
 
   const isValid = nombre.trim() && (
-    tipo === 'Plaza' ? numeroLocal.trim() :
-    tipo === 'Externo' ? referencia.trim() :
+    tipo === 'Externo' ? true :
     direccionEntrega.trim() && telefono.trim()
   )
 
@@ -34,8 +32,7 @@ function NewClientModal({ onClose }: { onClose: () => void }) {
     mutation.mutate({
       nombre: nombre.trim(),
       tipo,
-      numeroLocal: tipo === 'Plaza' ? numeroLocal.trim() : undefined,
-      referencia: tipo === 'Externo' ? referencia.trim() : undefined,
+      referencia: tipo === 'Externo' ? referencia.trim() || undefined : undefined,
       telefono: telefono.trim() || undefined,
       direccionEntrega: tipo === 'Domicilio' ? direccionEntrega.trim() : undefined,
       referenciaDomicilio: tipo === 'Domicilio' ? referenciaDomicilio.trim() || undefined : undefined,
@@ -76,7 +73,7 @@ function NewClientModal({ onClose }: { onClose: () => void }) {
               Tipo de cliente <span className="text-red-500">*</span>
             </label>
             <div className="flex gap-2">
-              {(['Plaza', 'Externo', 'Domicilio'] as const).map(t => (
+              {(['Externo', 'Domicilio'] as const).map(t => (
                 <button
                   key={t}
                   type="button"
@@ -87,31 +84,16 @@ function NewClientModal({ onClose }: { onClose: () => void }) {
                       : 'border-gray-300 text-gray-600 hover:border-orange-300'
                   }`}
                 >
-                  {t === 'Plaza' ? 'Plaza' : t === 'Externo' ? 'Externo' : 'Domicilio'}
+                  {t}
                 </button>
               ))}
             </div>
           </div>
 
-          {tipo === 'Plaza' && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Número de local <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={numeroLocal}
-                onChange={e => setNumeroLocal(e.target.value)}
-                placeholder="Ej. A-12"
-                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
-              />
-            </div>
-          )}
-
           {tipo === 'Externo' && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Referencia de ubicación <span className="text-red-500">*</span>
+                Referencia de ubicación <span className="text-gray-400 font-normal">(opcional)</span>
               </label>
               <input
                 type="text"
@@ -185,15 +167,10 @@ function NewClientModal({ onClose }: { onClose: () => void }) {
   )
 }
 
-function ClientSubtitle({ client }: { client: { tipo: string; numeroLocal: string | null; referencia: string | null; direccionEntrega: string | null; telefono: string | null } }) {
-  if (client.tipo === 'Plaza') return (
-    <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
-      <MapPin className="w-3 h-3" /> Local {client.numeroLocal}
-    </p>
-  )
+function ClientSubtitle({ client }: { client: { tipo: string; referencia: string | null; direccionEntrega: string | null; telefono: string | null } }) {
   if (client.tipo === 'Externo') return (
     <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
-      <Navigation className="w-3 h-3" /> {client.referencia}
+      {client.referencia && <><Navigation className="w-3 h-3" /> {client.referencia}</>}
     </p>
   )
   return (
@@ -255,7 +232,6 @@ export default function ClientsPage() {
     ? clientesNormales.filter(c =>
         c.nombre.toLowerCase().includes(q) ||
         c.telefono?.toLowerCase().includes(q) ||
-        c.numeroLocal?.toLowerCase().includes(q) ||
         c.referencia?.toLowerCase().includes(q) ||
         c.direccionEntrega?.toLowerCase().includes(q)
       )

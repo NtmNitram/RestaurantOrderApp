@@ -3,7 +3,7 @@
 export interface Client {
   id: number
   nombre: string
-  tipo: 'Plaza' | 'Externo' | 'Domicilio' | 'Mesa'
+  tipo: 'Externo' | 'Domicilio' | 'Mesa'
   numeroLocal: string | null
   referencia: string | null
   telefono: string | null
@@ -46,8 +46,7 @@ export interface Order {
 export interface DailySummaryCliente {
   clienteId: number
   nombreCliente: string
-  tipo: 'Plaza' | 'Externo'
-  numeroLocal: string | null
+  tipo: string
   referencia: string | null
   totalACobrar: number
   totalCobrado: number
@@ -70,8 +69,7 @@ export interface CreateOrderDto {
 
 export interface CreateClientDto {
   nombre: string
-  tipo: 'Plaza' | 'Externo' | 'Domicilio' | 'Mesa'
-  numeroLocal?: string
+  tipo: 'Externo' | 'Domicilio' | 'Mesa'
   referencia?: string
   telefono?: string
   direccionEntrega?: string
