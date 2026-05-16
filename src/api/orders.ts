@@ -26,7 +26,7 @@ export const addItemsToOrder = async (
   await apiClient.post(`/Orders/${id}/items`, { articulos })
 }
 
-export const getDailySummary = async (): Promise<DailySummary> => {
-  const res = await apiClient.get<DailySummary>('/Orders/summary/daily')
+export const getDailySummary = async (params?: { startDate?: string; endDate?: string }): Promise<DailySummary> => {
+  const res = await apiClient.get<DailySummary>('/Orders/summary/daily', { params })
   return res.data
 }

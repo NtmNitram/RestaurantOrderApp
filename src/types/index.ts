@@ -53,7 +53,8 @@ export interface DailySummaryCliente {
 }
 
 export interface DailySummary {
-  fecha: string
+  fechaInicio: string
+  fechaFin: string
   totalPedidos: number
   clientes: DailySummaryCliente[]
   totalGeneral: number
