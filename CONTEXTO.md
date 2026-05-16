@@ -33,30 +33,31 @@ También maneja **domicilios** para clientes frecuentes que llaman por teléfono
 RestaurantOrderAPI/src/
 ├── Domain/         Entidades + interfaces + enums
 ├── Application/    DTOs + servicios + interfaces
-├── Infrastructure/ AppDbContext + repositorios + DbSeeder
+├── Infrastructure/ AppDbContext + repositorios + DbSeeder + Migrations
 └── API/            Controllers + middleware + Program.cs
 ```
 
-- Base de datos: **PostgreSQL** con `EnsureCreated()` (sin migraciones EF).
+- Base de datos: **PostgreSQL** con migraciones EF Core (`dotnet ef database update`).
   Driver: `Npgsql.EntityFrameworkCore.PostgreSQL 10.0.1` en Infrastructure y API.
 - Multi-tenancy: entidad `Restaurant` con `RestaurantId` en Client, MenuItem, Order, User.
   EF Core global query filters filtran por restaurante automáticamente.
   `ICurrentRestaurantService` lee el `restaurantId` del JWT (`CurrentRestaurantService`).
   Login usa `IgnoreQueryFilters()` porque el restaurantId aún no se conoce.
+  `OrderService` y `MenuItemService` inyectan `ICurrentRestaurantService` para asignar `RestaurantId` al crear.
 - Autenticación: **JWT Bearer Token**. El token incluye claim `restaurantId`.
 - Roles: `"Dueño"` y `"Mesero"` (credenciales semilla: dueno/dueno123, mesero/mesero123).
 - CORS: `AllowAnyOrigin` configurado en Program.cs.
+- Fechas: usar siempre `DateTime.UtcNow` — PostgreSQL/Npgsql rechaza `DateTime.Now` (hora local).
 
-### Connection string (local)
-`appsettings.json`:
-```
-Host=localhost;Port=5432;Database=restaurant_orders;Username=postgres;Password=TU_PASSWORD
-```
-**Pendiente del desarrollador:** instalar PostgreSQL 17 local y crear la base `restaurant_orders`.
+### Configuración local
+
+- `appsettings.json` → placeholders seguros, commiteado en git.
+- `appsettings.Development.json` → password real y JWT key, **gitignoreado**, solo en máquina local.
+- `.env` en raíz del frontend: `VITE_API_URL=http://localhost:5288/api`
 
 ---
 
-## Módulo 1 — Estado actual (al 2026-05-13)
+## Módulo 1 — Estado actual (al 2026-05-15)
 
 ### Funcionalidades implementadas
 
@@ -65,24 +66,25 @@ Host=localhost;Port=5432;Database=restaurant_orders;Username=postgres;Password=T
 | Login + roles | ✅ | ✅ |
 | Clientes: pestañas Mesas / Clientes | ✅ | — |
 | Mesas 1–11 creadas automáticamente (seeder) | — | ✅ |
-| Buscador de clientes por nombre, teléfono, dirección | ✅ | — |
-| Crear cliente (Plaza, Externo, Domicilio) | ✅ | ✅ |
+| Buscador de clientes por nombre, teléfono, referencia | ✅ | — |
+| Crear cliente Externo (referencia opcional) | ✅ | ✅ |
+| Crear cliente Domicilio (dirección + teléfono obligatorios) | ✅ | ✅ |
 | Eliminar cliente (confirmación inline) | ✅ | ✅ |
-| Tipo Domicilio con dirección + referencias + teléfono obligatorio | ✅ | ✅ |
 | Toma de pedido por cliente o mesa | ✅ | ✅ |
+| Buscador de platillos en pantalla "Nuevo pedido" | ✅ | — |
 | Agregar artículos a pedido Pendiente existente | ✅ | ✅ |
 | Buscador de platillos en modal "Agregar al pedido" | ✅ | — |
-| Buscador de platillos en pantalla "Nuevo pedido" | ✅ | — |
 | Listado de pedidos del día con buscador | ✅ | ✅ |
 | Marcar pedido Entregado / Cancelado | ✅ | ✅ |
 | Estado de cobro por pedido (Cobrar → Cobrado) | ✅ | ✅ |
 | Pestaña "Pendientes" = sin cobrar (no cancelados) | ✅ | ✅ |
 | Badge del navbar refleja pendientes de cobro | ✅ | — |
 | Resumen diario con Por cobrar y Cobrado (global y por cliente) | ✅ | ✅ |
+| CRUD de menú completo (solo Dueño) | ✅ | ✅ |
 
 ### Pendiente de implementar
 
-- [ ] Control de vajilla — registrar platos/vasos entregados por pedido y lo que hay que recuperar al cierre
+- [ ] Control de vajilla — registrar platos entregados por pedido (solo Externo), marcar recuperados al cobrar
 - [ ] Flujo de cierre de ronda — pantalla para el vendedor al momento de cobrar y recoger vajilla
 
 ---
@@ -91,32 +93,39 @@ Host=localhost;Port=5432;Database=restaurant_orders;Username=postgres;Password=T
 
 ### Client
 ```
-Id, Name, Tipo ("Plaza"|"Externo"|"Domicilio"|"Mesa"),
-LocalNumber?, Referencia?, PhoneNumber?,
-DireccionEntrega?, ReferenciaDomicilio?, IsActive
+Id, Name, Tipo ("Externo"|"Domicilio"|"Mesa"),
+LocalNumber? (campo legacy, ya no se usa),
+Referencia?, PhoneNumber?,
+DireccionEntrega?, ReferenciaDomicilio?, IsActive,
+RestaurantId
 ```
-- `Plaza` → `LocalNumber` requerido
-- `Externo` → `Referencia` requerida
+- `Externo` → `Referencia` opcional (negocio cercano, dentro o fuera de la plaza)
 - `Domicilio` → `DireccionEntrega` + `Telefono` requeridos, `ReferenciaDomicilio` opcional
-- `Mesa` → solo `Name` ("Mesa 1"..."Mesa 11"), sin campos extra. Sin botón eliminar en la UI.
+- `Mesa` → solo `Name` ("Mesa 1"..."Mesa 11"). Sin botón eliminar en la UI.
+- Tipo `Plaza` fue eliminado y unificado con `Externo` (2026-05-15).
 
 ### MenuItem
 ```
-Id, Name, Description, Price, IsAvailable
+Id, Name, Description?, Price, IsAvailable, RestaurantId
 ```
 
 ### Order
 ```
-Id, ClientId, OrderDate,
+Id, ClientId, RestaurantId, OrderDate (UTC),
 Status (Pending/Delivered/Cancelled),
 PaymentStatus (PendienteCobro/Cobrado),
-Notes, Total
+Notes?, Total
 → OrderDetails: MenuItemId, Quantity, UnitPrice, Subtotal
 ```
 
 ### User
 ```
-Id, Username, PasswordHash, Role
+Id, Username, PasswordHash, Role, RestaurantId
+```
+
+### Restaurant
+```
+Id, Name, IsActive
 ```
 
 ---
@@ -145,6 +154,7 @@ Cobro al cierre → PaymentStatus: Cobrado
 | `/clientes` | ClientsPage | Cualquiera autenticado |
 | `/nuevo-pedido/:clientId` | NewOrderPage | Cualquiera autenticado |
 | `/pedidos` | OrdersPage | Cualquiera autenticado |
+| `/menu` | MenuPage | Solo Dueño |
 | `/resumen` | DailySummaryPage | Solo Dueño |
 
 ---
@@ -154,20 +164,25 @@ Cobro al cierre → PaymentStatus: Cobrado
 **Clientes** `api/clients`
 - `GET /` — todos los clientes
 - `GET /{id}` — por ID
-- `POST /` — crear `{ nombre, tipo, numeroLocal?, referencia?, telefono?, direccionEntrega?, referenciaDomicilio? }`
+- `POST /` — crear `{ nombre, tipo, referencia?, telefono?, direccionEntrega?, referenciaDomicilio? }`
 - `PUT /{id}` — actualizar
 - `DELETE /{id}` — eliminar
 
 **Menú** `api/menuitems`
-- `GET /` — todos los platillos
+- `GET /` — todos los platillos (autenticado)
+- `GET /available` — solo disponibles
+- `GET /{id}` — por ID
+- `POST /` — crear `{ nombre, descripcion?, precio }` **(solo Dueño)**
+- `PUT /{id}` — actualizar `{ nombre, descripcion?, precio, disponible }` **(solo Dueño)**
+- `DELETE /{id}` — eliminar **(solo Dueño)**
 
 **Órdenes** `api/orders`
 - `GET /` — pedidos del día
 - `POST /` — crear pedido `{ clienteId, notas?, articulos: [{articuloId, cantidad}] }`
-- `POST /{id}/items` — agregar artículos a pedido Pendiente `{ articulos: [{articuloId, cantidad}] }` (acumula si ya existe)
+- `POST /{id}/items` — agregar artículos a pedido Pendiente (acumula si ya existe)
 - `PATCH /{id}/status` — cambiar estado entrega `{ estado: 0|1|2 }`
 - `PATCH /{id}/payment-status` — cambiar estado cobro `{ estadoCobro: 0|1 }`
-- `GET /summary/daily` — resumen diario (solo Dueño)
+- `GET /summary/daily` — resumen diario **(solo Dueño)**
 
 **Auth** `api/auth`
 - `POST /login` — `{ username, password }` → `{ token, role, username }`
@@ -183,7 +198,7 @@ DailySummaryDto {
   totalCobrado,
   clientes: [
     ClientDailySummaryDto {
-      ...,
+      clienteId, nombreCliente, tipo, referencia,
       totalACobrar,   ← pendiente de cobro del cliente
       totalCobrado,   ← ya pagado por el cliente
       pedidos: [ OrderSummaryItemDto { ..., estadoCobro } ]
@@ -191,16 +206,6 @@ DailySummaryDto {
   ]
 }
 ```
-
----
-
-## Configuración de entorno
-
-`.env` en la raíz del frontend:
-```
-VITE_API_URL=http://localhost:5288/api   ← desarrollo local
-```
-En Vercel: `VITE_API_URL=https://tu-url-de-railway.up.railway.app/api`
 
 ---
 
@@ -221,14 +226,6 @@ En Vercel: `VITE_API_URL=https://tu-url-de-railway.up.railway.app/api`
 1. railway.app → New Project → Add a Service → Database → PostgreSQL
 2. Copiar connection string (formato Npgsql): `Host=...;Port=...;Database=...;Username=...;Password=...`
 3. Pegarlo como variable de entorno `ConnectionStrings__DefaultConnection` en el servicio del backend
-4. Con PostgreSQL los datos persisten entre reinicios del contenedor
-
----
-
-## Bugs resueltos (sesión 2026-05-13)
-
-- **RestaurantId en Order:** `OrderService.CreateAsync` no asignaba `RestaurantId` al crear un pedido — quedaba en 0 y fallaba la FK de PostgreSQL. Solución: inyectar `ICurrentRestaurantService` en `OrderService` y asignarlo en la creación.
-- **DateTime UTC:** PostgreSQL con Npgsql requiere `DateTime.UtcNow`, no `DateTime.Now` (hora local). Corregido en `Order.cs`, `OrderService.cs` y `OrdersController.cs`.
 
 ---
 
@@ -237,10 +234,11 @@ En Vercel: `VITE_API_URL=https://tu-url-de-railway.up.railway.app/api`
 - `TotalACobrar` en resumen solo suma pedidos con `PaymentStatus = PendienteCobro`.
 - `POST /orders/{id}/items` acumula cantidad si el artículo ya existe en el pedido.
 - Las mesas no tienen botón eliminar en la UI — son fixtures permanentes.
-- El seeder verifica `if (!context.Clients.Any(c => c.Tipo == "Mesa"))` para no duplicar mesas al reiniciar.
-- Buscadores de clientes y pedidos filtran en memoria (sin llamadas extra al backend).
+- El seeder usa `IgnoreQueryFilters()` para no fallar durante el arranque (antes del login).
+- Buscadores de clientes, pedidos y platillos filtran en memoria (sin llamadas extra al backend).
 - Los precios son `decimal` nativo en PostgreSQL (sin `HasColumnType`).
-- La ruta `/resumen` está protegida con `<ProtectedRoute role="Dueño">` en frontend Y backend.
-- Confirmación de eliminar cliente es inline en la tarjeta (sin modal) — optimizado para móvil.
-- Multi-tenancy: `Restaurant` es la raíz de todo. En producción cada negocio tendrá su propio restaurante.
-- El seeder usa `IgnoreQueryFilters()` en todos los checks para evitar errores durante el arranque (antes del login).
+- Rutas `/menu` y `/resumen` protegidas con `<ProtectedRoute role="Dueño">` en frontend Y `[Authorize(Roles = "Dueño")]` en backend.
+- Confirmación de eliminar es inline en la tarjeta (sin modal) — optimizado para móvil.
+- Multi-tenancy: `Restaurant` es la raíz de todo. `OrderService` y `MenuItemService` inyectan `ICurrentRestaurantService` para asignar `RestaurantId`.
+- `appsettings.Development.json` gitignoreado — nunca commitear passwords al repo.
+- Control de vajilla solo aplica a clientes tipo `Externo` — Domicilio usa desechables, Mesa no necesita recuperación.
