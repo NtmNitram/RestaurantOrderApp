@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, type ReactNode } from 'react'
-import { login as apiLogin, type LoginRequest } from '../api/auth'
+import { login as apiLogin, logout as apiLogout, type LoginRequest } from '../api/auth'
 
 interface AuthState {
   token: string | null
@@ -9,7 +9,7 @@ interface AuthState {
 
 interface AuthContextValue extends AuthState {
   login: (data: LoginRequest) => Promise<void>
-  logout: () => void
+  logout: () => Promise<void>
   isAuthenticated: boolean
 }
 
@@ -30,7 +30,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuth({ token: result.token, role: result.role, username: result.username })
   }
 
-  const logout = () => {
+  const logout = async () => {
+    try { await apiLogout() } catch { /* continuar aunque falle */ }
     localStorage.removeItem('token')
     localStorage.removeItem('role')
     localStorage.removeItem('username')

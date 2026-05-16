@@ -12,8 +12,8 @@ export default function Layout() {
   const { data: orders } = useQuery({ queryKey: ['orders'], queryFn: getOrders })
   const pendingCount = orders?.filter(o => o.estadoCobro !== 'Cobrado' && o.estado !== 'Cancelado').length ?? 0
 
-  const handleLogout = () => {
-    logout()
+  const handleLogout = async () => {
+    await logout()
     navigate('/login')
   }
 

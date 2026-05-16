@@ -15,3 +15,7 @@ export async function login(data: LoginRequest): Promise<TokenResponse> {
   const res = await api.post<TokenResponse>('/Auth/login', data)
   return res.data
 }
+
+export async function logout(): Promise<void> {
+  await api.post('/Auth/logout')
+}
