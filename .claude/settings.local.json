@@ -12,7 +12,18 @@
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
       "Bash(git push *)",
-      "Bash(Test-Path *)"
+      "Bash(Test-Path *)",
+      "Bash(dotnet remove *)",
+      "Bash(dotnet package search *)",
+      "Bash(psql *)",
+      "PowerShell(psql *)",
+      "PowerShell(& \"C:\\\\Program Files\\\\PostgreSQL\\\\18\\\\bin\\\\psql.exe\" -U postgres -c \"CREATE DATABASE restaurant_orders;\" 2>&1)",
+      "PowerShell(& \"C:\\\\Program Files\\\\PostgreSQL\\\\17\\\\bin\\\\psql.exe\" -U postgres -c \"\\\\list restaurant_orders\" 2>&1)",
+      "PowerShell($env:PGPASSWORD = \"postgres123\"; & \"C:\\\\Program Files\\\\PostgreSQL\\\\18\\\\bin\\\\psql.exe\" -U postgres -c \"CREATE DATABASE restaurant_orders;\" 2>&1)",
+      "PowerShell(dotnet tool install *)",
+      "Bash(git rm *)",
+      "Bash(git commit *)",
+      "Bash(dotnet ef *)"
     ]
   }
 }
