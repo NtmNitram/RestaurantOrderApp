@@ -35,7 +35,7 @@ api.interceptors.response.use(
         clearAuth()
         window.location.href = '/login'
       }
-    } else if (error.response?.status === 401) {
+    } else if (error.response?.status === 401 && !isAuthRoute) {
       clearAuth()
       window.location.href = '/login'
     }
