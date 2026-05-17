@@ -23,7 +23,14 @@
       "PowerShell(dotnet tool install *)",
       "Bash(git rm *)",
       "Bash(git commit *)",
-      "Bash(dotnet ef *)"
+      "Bash(dotnet ef *)",
+      "Bash(xargs grep -l -iE \"refresh|interceptor|axios\")",
+      "Bash(xargs grep -l -iE \"AuthContext|useAuth\")",
+      "Bash(npx tsc *)",
+      "Bash(netstat -ano)",
+      "Bash(xargs grep -l \"\")",
+      "Bash(xargs cat)",
+      "Bash(PGPASSWORD=postgres123 /c/Program Files/PostgreSQL/18/bin/psql.exe *)"
     ]
   }
 }
