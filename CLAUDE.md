@@ -44,9 +44,9 @@ RestaurantOrderAPI/src/
   `ICurrentRestaurantService` lee el `restaurantId` del JWT (`CurrentRestaurantService`).
   Login usa `IgnoreQueryFilters()` porque el restaurantId aún no se conoce.
   `OrderService` y `MenuItemService` inyectan `ICurrentRestaurantService` para asignar `RestaurantId` al crear.
-- Autenticación: **JWT Bearer Token**. El token incluye claim `restaurantId`.
+- Autenticación: **JWT Bearer Token** (access token en memoria) + **Refresh Token** (cookie httpOnly, 7 días, rotación en cada uso).
 - Roles: `"Dueño"` y `"Mesero"` (credenciales semilla: dueno/dueno123, mesero/mesero123).
-- CORS: `AllowAnyOrigin` configurado en Program.cs.
+- CORS: `WithOrigins(allowedOrigins)` + `AllowCredentials()`. Orígenes configurados en `appsettings.json` (`Cors:AllowedOrigins`).
 - Fechas: usar siempre `DateTime.UtcNow` — PostgreSQL/Npgsql rechaza `DateTime.Now` (hora local).
 
 ### Configuración local
@@ -57,7 +57,23 @@ RestaurantOrderAPI/src/
 
 ---
 
-## Módulo 1 — Estado actual (al 2026-05-15)
+## Fase 0 — Seguridad crítica (completada 2026-05-16)
+
+| Item | Backend | Frontend |
+|---|---|---|
+| CORS restringido por origen (`WithOrigins` + `AllowCredentials`) | ✅ | — |
+| Entidad `RefreshToken` + migración EF Core | ✅ | — |
+| `JwtTokenService` — genera access token (15 min) + refresh token aleatorio | ✅ | — |
+| `AuthService` — login, refresh con rotación, logout | ✅ | — |
+| `AuthController` — cookie httpOnly con refresh token, `/refresh`, `/logout` | ✅ | — |
+| `tokenStore` — puente en memoria entre interceptor Axios y AuthContext | — | ✅ |
+| Access token solo en memoria (no localStorage) | — | ✅ |
+| Interceptor Axios con retry automático en 401 vía `/Auth/refresh` | — | ✅ |
+| `isAuthenticated` basado en `role` (localStorage) para sobrevivir reloads | — | ✅ |
+
+---
+
+## Módulo 1 — Estado actual (al 2026-05-16)
 
 ### Funcionalidades implementadas
 
@@ -185,7 +201,9 @@ Cobro al cierre → PaymentStatus: Cobrado
 - `GET /summary/daily` — resumen diario **(solo Dueño)**
 
 **Auth** `api/auth`
-- `POST /login` — `{ username, password }` → `{ token, role, username }`
+- `POST /login` — `{ username, password }` → `{ token, role, username, restaurantId }` + cookie httpOnly `refreshToken`
+- `POST /refresh` — usa cookie `refreshToken` → `{ token, role, username, restaurantId }` + nueva cookie (rotación)
+- `POST /logout` — revoca el refresh token y elimina la cookie
 
 ---
 
@@ -242,3 +260,7 @@ DailySummaryDto {
 - Multi-tenancy: `Restaurant` es la raíz de todo. `OrderService` y `MenuItemService` inyectan `ICurrentRestaurantService` para asignar `RestaurantId`.
 - `appsettings.Development.json` gitignoreado — nunca commitear passwords al repo.
 - Control de vajilla solo aplica a clientes tipo `Externo` — Domicilio usa desechables, Mesa no necesita recuperación.
+- Access token JWT vive solo en memoria (`tokenStore.ts`) — elimina vector XSS de localStorage.
+- `tokenStore` es un módulo puente (get/set/register) que evita el import circular entre `client.ts` y `AuthContext.tsx`.
+- `isAuthenticated` se basa en `role` (localStorage) y no en el token, para que el estado de sesión sobreviva reloads mientras el interceptor renueva el token silenciosamente.
+- Refresh token: cookie `httpOnly; SameSite=Strict; Secure` (en HTTPS). Expira en 7 días. Se rota en cada uso — un token solo es válido una vez.
