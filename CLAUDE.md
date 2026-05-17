@@ -98,10 +98,28 @@ RestaurantOrderAPI/src/
 | Resumen diario con Por cobrar y Cobrado (global y por cliente) | ✅ | ✅ |
 | CRUD de menú completo (solo Dueño) | ✅ | ✅ |
 
-### Pendiente de implementar
+### Flujo operativo definido (2026-05-16)
 
-- [ ] Control de vajilla — registrar platos entregados por pedido (solo Externo), marcar recuperados al cobrar
-- [ ] Flujo de cierre de ronda — pantalla para el vendedor al momento de cobrar y recoger vajilla
+El restaurante operaba con papeles: mesero escribe pedido a mano, lleva copia a cocina y cliente lleva recibo a caja.
+
+**Flujo objetivo con la app:**
+- Mesero (celular): toma pedido en app, marca Entregado
+- Cocina (tableta fija): ve pedidos Pending en tiempo real
+- Cajera (tableta en caja): ve pedidos Delivered+PendienteCobro, marca Cobrado
+
+**Roles necesarios:** Mesero, Cocina, Cajera, Dueño
+
+**Plan de adopción en dos fases:**
+- Fase 1 (inmediata): pantalla de cocina con polling 30s — elimina papel de cocina. Mesero sigue marcando Cobrado como ahora.
+- Fase 2 (después de 30 días en producción): cajera tiene su pantalla y marca Cobrado. Mesero ya no toca el cobro.
+
+### Pendiente de implementar (actualizado)
+
+- [ ] Control de vajilla (en curso — Paso 2 completado, Paso 3 pendiente)
+- [ ] Pantalla de cocina — polling 30s, solo pedidos Pending (Fase 1)
+- [ ] Rol "Cocina" — solo ve pantalla de cocina
+- [ ] Rol "Cajera" — solo ve pedidos Delivered+PendienteCobro, marca Cobrado (Fase 2)
+- [ ] Flujo de cierre de ronda / DeliveryRound (después de vajilla)
 
 ---
 
