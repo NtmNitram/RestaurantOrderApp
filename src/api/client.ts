@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { tokenStore } from './tokenStore'
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL ?? '/api',
@@ -7,13 +8,13 @@ const api = axios.create({
 })
 
 api.interceptors.request.use(config => {
-  const token = localStorage.getItem('token')
+  const token = tokenStore.get()
   if (token) config.headers.Authorization = `Bearer ${token}`
   return config
 })
 
 const clearAuth = () => {
-  localStorage.removeItem('token')
+  tokenStore.set(null)
   localStorage.removeItem('role')
   localStorage.removeItem('username')
 }
@@ -28,7 +29,7 @@ api.interceptors.response.use(
       original._retry = true
       try {
         const { data } = await api.post<{ token: string }>('/Auth/refresh')
-        localStorage.setItem('token', data.token)
+        tokenStore.set(data.token)
         original.headers.Authorization = `Bearer ${data.token}`
         return api(original)
       } catch {

@@ -1,5 +1,6 @@
-import { createContext, useContext, useState, type ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect, type ReactNode } from 'react'
 import { login as apiLogin, logout as apiLogout, type LoginRequest } from '../api/auth'
+import { tokenStore } from '../api/tokenStore'
 
 interface AuthState {
   token: string | null
@@ -16,15 +17,20 @@ interface AuthContextValue extends AuthState {
 const AuthContext = createContext<AuthContextValue | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [auth, setAuth] = useState<AuthState>(() => ({
-    token: localStorage.getItem('token'),
+  const [auth, setAuth] = useState<AuthState>({
+    token: null,
     role: localStorage.getItem('role'),
     username: localStorage.getItem('username'),
-  }))
+  })
+
+  useEffect(() => {
+    tokenStore.register((token) => setAuth(prev => ({ ...prev, token })))
+    return () => tokenStore.register(() => {})
+  }, [])
 
   const login = async (data: LoginRequest) => {
     const result = await apiLogin(data)
-    localStorage.setItem('token', result.token)
+    tokenStore.set(result.token)
     localStorage.setItem('role', result.role)
     localStorage.setItem('username', result.username)
     setAuth({ token: result.token, role: result.role, username: result.username })
@@ -32,14 +38,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     try { await apiLogout() } catch { /* continuar aunque falle */ }
-    localStorage.removeItem('token')
+    tokenStore.set(null)
     localStorage.removeItem('role')
     localStorage.removeItem('username')
     setAuth({ token: null, role: null, username: null })
   }
 
   return (
-    <AuthContext.Provider value={{ ...auth, login, logout, isAuthenticated: !!auth.token }}>
+    <AuthContext.Provider value={{ ...auth, login, logout, isAuthenticated: !!auth.role }}>
       {children}
     </AuthContext.Provider>
   )
