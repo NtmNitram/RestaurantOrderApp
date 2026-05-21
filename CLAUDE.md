@@ -115,7 +115,12 @@ El restaurante operaba con papeles: mesero escribe pedido a mano, lleva copia a 
 
 ### Pendiente de implementar (actualizado)
 
-- [ ] Control de vajilla (en curso — Paso 2 completado, Paso 3 pendiente)
+- [ ] Control de vajilla (en curso — backend completo, falta frontend)
+  - ✅ Paso 1: Entidad `OrderTableware` + migración EF Core
+  - ✅ Paso 2: `IOrderTablewareRepository` + implementación + UnitOfWork
+  - ✅ Paso 3: DTOs + `ITablewareService` + `TablewareService`
+  - ✅ Paso 4: `TablewareController` + registro en `Program.cs`
+  - [ ] Paso 5: Frontend — pantalla de vajilla
 - [ ] Pantalla de cocina — polling 30s, solo pedidos Pending (Fase 1)
 - [ ] Rol "Cocina" — solo ve pantalla de cocina
 - [ ] Rol "Cajera" — solo ve pedidos Delivered+PendienteCobro, marca Cobrado (Fase 2)
@@ -217,6 +222,12 @@ Cobro al cierre → PaymentStatus: Cobrado
 - `PATCH /{id}/status` — cambiar estado entrega `{ estado: 0|1|2 }`
 - `PATCH /{id}/payment-status` — cambiar estado cobro `{ estadoCobro: 0|1 }`
 - `GET /summary/daily` — resumen diario **(solo Dueño)**
+
+**Vajilla** `api/tableware`
+- `GET /pending` — vajilla pendiente de recuperar (autenticado)
+- `GET /order/{orderId}` — vajilla registrada para un pedido específico
+- `POST /` — registrar vajilla entregada `{ orderId, itemType, quantityDelivered }` (solo clientes Externo)
+- `PATCH /order/{orderId}/recover` — registrar recuperación `{ quantityRecovered }` (acumulativa)
 
 **Auth** `api/auth`
 - `POST /login` — `{ username, password }` → `{ token, role, username, restaurantId }` + cookie httpOnly `refreshToken`
