@@ -45,7 +45,9 @@ RestaurantOrderAPI/src/
   Login usa `IgnoreQueryFilters()` porque el restaurantId aún no se conoce.
   `OrderService` y `MenuItemService` inyectan `ICurrentRestaurantService` para asignar `RestaurantId` al crear.
 - Autenticación: **JWT Bearer Token** (access token en memoria) + **Refresh Token** (cookie httpOnly, 7 días, rotación en cada uso).
-- Roles: `"Dueño"` y `"Mesero"` (credenciales semilla: dueno/dueno123, mesero/mesero123).
+- Roles actuales: `"Dueño"`, `"Mesero"` (credenciales semilla: dueno/dueno123, mesero/mesero123).
+  Roles Fase 1: + `"Cocina"` (solo ve pantalla de cocina).
+  Roles Fase 2: + `"Cajera"` (solo ve pedidos Delivered+PendienteCobro, marca Cobrado).
 - CORS: `WithOrigins(allowedOrigins)` + `AllowCredentials()`. Orígenes configurados en `appsettings.json` (`Cors:AllowedOrigins`).
 - Fechas: usar siempre `DateTime.UtcNow` — PostgreSQL/Npgsql rechaza `DateTime.Now` (hora local).
 
@@ -312,5 +314,6 @@ DailySummaryDto {
 - `isAuthenticated` se basa en `role` (localStorage) y no en el token, para que el estado de sesión sobreviva reloads mientras el interceptor renueva el token silenciosamente.
 - Refresh token: cookie `httpOnly; SameSite=Strict; Secure` (en HTTPS). Expira en 7 días. Se rota en cada uso — un token solo es válido una vez.
 - `OrderResponseDto` incluye `TipoCliente` para que el frontend distinga pedidos Externo sin consulta adicional.
+- **Bug corregido 2026-05-17:** `ClientService` no inyectaba `ICurrentRestaurantService` → `RestaurantId` llegaba vacío → FK violation 500. Fix: inyectar igual que `OrderService` y `MenuItemService`. **Regla:** todo servicio que crea entidades con `RestaurantId` DEBE inyectar `ICurrentRestaurantService`. Verificado al 2026-05-21: `OrderService`, `MenuItemService`, `ClientService` y `TablewareService` lo inyectan correctamente.
 - Al marcar Entregado en `OrdersPage`: si `tipoCliente === 'Externo'` se abre un modal de vajilla; para Mesa/Domicilio se entrega directamente.
 - La recuperación de vajilla es acumulativa — se puede llamar varias veces hasta agotar `QuantityDelivered`.
