@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getPendingTableware, recoverTableware } from '../api/tableware'
+import { useAuth } from '../context/AuthContext'
 import type { Tableware } from '../types'
 import { Archive, CheckCircle, Minus, Plus } from 'lucide-react'
 
-function TablewareCard({ item }: { item: Tableware }) {
+function TablewareCard({ item, canRecover }: { item: Tableware; canRecover: boolean }) {
   const queryClient = useQueryClient()
   const [cantidad, setCantidad] = useState(item.pendiente)
   const [recuperando, setRecuperando] = useState(false)
@@ -42,7 +43,7 @@ function TablewareCard({ item }: { item: Tableware }) {
         <span className="text-amber-700 font-medium">Pendiente: <strong>{item.pendiente}</strong></span>
       </div>
 
-      {recuperando ? (
+      {canRecover && recuperando ? (
         <div className="border-t border-gray-100 pt-3">
           <p className="text-xs text-gray-500 mb-2">¿Cuántos platos recuperas?</p>
           <div className="flex items-center gap-3">
@@ -83,13 +84,17 @@ function TablewareCard({ item }: { item: Tableware }) {
         </div>
       ) : (
         <div className="border-t border-gray-100 pt-3 flex justify-end">
-          <button
-            onClick={() => { setCantidad(item.pendiente); setRecuperando(true) }}
-            className="flex items-center gap-1.5 bg-orange-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-orange-600 transition-colors"
-          >
-            <Archive className="w-3.5 h-3.5" />
-            Recuperar
-          </button>
+          {canRecover ? (
+            <button
+              onClick={() => { setCantidad(item.pendiente); setRecuperando(true) }}
+              className="flex items-center gap-1.5 bg-orange-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-orange-600 transition-colors"
+            >
+              <Archive className="w-3.5 h-3.5" />
+              Recuperar
+            </button>
+          ) : (
+            <span className="text-xs text-gray-400 italic">Solo el administrador puede registrar recuperaciones</span>
+          )}
         </div>
       )}
     </div>
@@ -97,6 +102,9 @@ function TablewareCard({ item }: { item: Tableware }) {
 }
 
 export default function VajillaPage() {
+  const { role } = useAuth()
+  const isAdmin = role === 'Administrador'
+
   const { data: items, isLoading, isError } = useQuery({
     queryKey: ['tableware-pending'],
     queryFn: getPendingTableware,
@@ -130,7 +138,7 @@ export default function VajillaPage() {
       ) : (
         <div className="grid gap-3">
           {items?.map((item: Tableware) => (
-            <TablewareCard key={item.id} item={item} />
+            <TablewareCard key={item.id} item={item} canRecover={isAdmin} />
           ))}
         </div>
       )}

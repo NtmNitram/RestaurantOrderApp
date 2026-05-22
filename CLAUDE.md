@@ -45,7 +45,7 @@ RestaurantOrderAPI/src/
   Login usa `IgnoreQueryFilters()` porque el restaurantId aún no se conoce.
   `OrderService` y `MenuItemService` inyectan `ICurrentRestaurantService` para asignar `RestaurantId` al crear.
 - Autenticación: **JWT Bearer Token** (access token en memoria) + **Refresh Token** (cookie httpOnly, 7 días, rotación en cada uso).
-- Roles actuales: `"Dueño"`, `"Mesero"` (credenciales semilla: dueno/dueno123, mesero/mesero123).
+- Roles actuales: `"Administrador"`, `"Empleado"` (credenciales semilla: admin/admin123, empleado/empleado123).
   Roles Fase 1: + `"Cocina"` (solo ve pantalla de cocina).
   Roles Fase 2: + `"Cajera"` (solo ve pedidos Delivered+PendienteCobro, marca Cobrado).
 - CORS: `WithOrigins(allowedOrigins)` + `AllowCredentials()`. Orígenes configurados en `appsettings.json` (`Cors:AllowedOrigins`).
@@ -98,7 +98,7 @@ RestaurantOrderAPI/src/
 | Pestaña "Pendientes" = sin cobrar (no cancelados) | ✅ | ✅ |
 | Badge del navbar refleja pendientes de cobro | ✅ | — |
 | Resumen diario con Por cobrar y Cobrado (global y por cliente) | ✅ | ✅ |
-| CRUD de menú completo (solo Dueño) | ✅ | ✅ |
+| CRUD de menú completo (solo Administrador) | ✅ | ✅ |
 | Control de vajilla: registrar al entregar (modal en OrdersPage) | ✅ | ✅ |
 | Control de vajilla: lista de pendientes + recuperación inline | ✅ | ✅ |
 | Badge del navbar refleja vajilla pendiente de recuperar | ✅ | — |
@@ -108,15 +108,15 @@ RestaurantOrderAPI/src/
 El restaurante operaba con papeles: mesero escribe pedido a mano, lleva copia a cocina y cliente lleva recibo a caja.
 
 **Flujo objetivo con la app:**
-- Mesero (celular): toma pedido en app, marca Entregado
+- Empleado (celular): toma pedido en app, marca Entregado
 - Cocina (tableta fija): ve pedidos Pending en tiempo real
 - Cajera (tableta en caja): ve pedidos Delivered+PendienteCobro, marca Cobrado
 
-**Roles necesarios:** Mesero, Cocina, Cajera, Dueño
+**Roles necesarios:** Empleado, Cocina, Cajera, Administrador
 
 **Plan de adopción en dos fases:**
-- Fase 1 (inmediata): pantalla de cocina con polling 30s — elimina papel de cocina. Mesero sigue marcando Cobrado como ahora.
-- Fase 2 (después de 30 días en producción): cajera tiene su pantalla y marca Cobrado. Mesero ya no toca el cobro.
+- Fase 1 (inmediata): pantalla de cocina con polling 30s — elimina papel de cocina. Empleado sigue marcando Cobrado como ahora.
+- Fase 2 (después de 30 días en producción): cajera tiene su pantalla y marca Cobrado. Empleado ya no toca el cobro.
 
 ### Pendiente de implementar (actualizado)
 
@@ -213,8 +213,8 @@ Cobro al cierre → PaymentStatus: Cobrado
 | `/nuevo-pedido/:clientId` | NewOrderPage | Cualquiera autenticado |
 | `/pedidos` | OrdersPage | Cualquiera autenticado |
 | `/vajilla` | VajillaPage | Cualquiera autenticado |
-| `/menu` | MenuPage | Solo Dueño |
-| `/resumen` | DailySummaryPage | Solo Dueño |
+| `/menu` | MenuPage | Solo Administrador |
+| `/resumen` | DailySummaryPage | Solo Administrador |
 
 ---
 
@@ -231,9 +231,9 @@ Cobro al cierre → PaymentStatus: Cobrado
 - `GET /` — todos los platillos (autenticado)
 - `GET /available` — solo disponibles
 - `GET /{id}` — por ID
-- `POST /` — crear `{ nombre, descripcion?, precio }` **(solo Dueño)**
-- `PUT /{id}` — actualizar `{ nombre, descripcion?, precio, disponible }` **(solo Dueño)**
-- `DELETE /{id}` — eliminar **(solo Dueño)**
+- `POST /` — crear `{ nombre, descripcion?, precio }` **(solo Administrador)**
+- `PUT /{id}` — actualizar `{ nombre, descripcion?, precio, disponible }` **(solo Administrador)**
+- `DELETE /{id}` — eliminar **(solo Administrador)**
 
 **Órdenes** `api/orders`
 - `GET /` — pedidos del día
@@ -241,7 +241,7 @@ Cobro al cierre → PaymentStatus: Cobrado
 - `POST /{id}/items` — agregar artículos a pedido Pendiente (acumula si ya existe)
 - `PATCH /{id}/status` — cambiar estado entrega `{ estado: 0|1|2 }`
 - `PATCH /{id}/payment-status` — cambiar estado cobro `{ estadoCobro: 0|1 }`
-- `GET /summary/daily` — resumen diario **(solo Dueño)**
+- `GET /summary/daily` — resumen diario **(solo Administrador)**
 
 **Vajilla** `api/tableware`
 - `GET /pending` — vajilla pendiente de recuperar (autenticado)
@@ -304,7 +304,7 @@ DailySummaryDto {
 - El seeder usa `IgnoreQueryFilters()` para no fallar durante el arranque (antes del login).
 - Buscadores de clientes, pedidos y platillos filtran en memoria (sin llamadas extra al backend).
 - Los precios son `decimal` nativo en PostgreSQL (sin `HasColumnType`).
-- Rutas `/menu` y `/resumen` protegidas con `<ProtectedRoute role="Dueño">` en frontend Y `[Authorize(Roles = "Dueño")]` en backend.
+- Rutas `/menu` y `/resumen` protegidas con `<ProtectedRoute role="Administrador">` en frontend Y `[Authorize(Roles = "Administrador")]` en backend.
 - Confirmación de eliminar es inline en la tarjeta (sin modal) — optimizado para móvil.
 - Multi-tenancy: `Restaurant` es la raíz de todo. `OrderService` y `MenuItemService` inyectan `ICurrentRestaurantService` para asignar `RestaurantId`.
 - `appsettings.Development.json` gitignoreado — nunca commitear passwords al repo.

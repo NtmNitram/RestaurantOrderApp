@@ -8,7 +8,7 @@ import { getPendingTableware } from '../api/tableware'
 export default function Layout() {
   const { role, username, logout } = useAuth()
   const navigate = useNavigate()
-  const isDueño = role === 'Dueño'
+  const isAdmin = role === 'Administrador'
 
   const { data: orders } = useQuery({ queryKey: ['orders'], queryFn: getOrders })
   const pendingCount = orders?.filter(o => o.estadoCobro !== 'Cobrado' && o.estado !== 'Cancelado').length ?? 0
@@ -25,7 +25,7 @@ export default function Layout() {
     { to: '/clientes', label: 'Clientes', icon: <Users className="w-5 h-5" /> },
     { to: '/pedidos', label: 'Pedidos', icon: <ClipboardList className="w-5 h-5" />, badge: pendingCount },
     { to: '/vajilla', label: 'Vajilla', icon: <Archive className="w-5 h-5" />, badge: vajillaCount },
-    ...(isDueño ? [
+    ...(isAdmin ? [
       { to: '/menu', label: 'Menú', icon: <BookOpen className="w-5 h-5" /> },
       { to: '/resumen', label: 'Resumen', icon: <BarChart3 className="w-5 h-5" /> },
     ] : []),

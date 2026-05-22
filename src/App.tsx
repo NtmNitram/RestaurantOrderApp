@@ -32,7 +32,7 @@ export default function App() {
             <Route
               path="menu"
               element={
-                <ProtectedRoute role="Dueño">
+                <ProtectedRoute role="Administrador">
                   <MenuPage />
                 </ProtectedRoute>
               }
@@ -40,7 +40,7 @@ export default function App() {
             <Route
               path="resumen"
               element={
-                <ProtectedRoute role="Dueño">
+                <ProtectedRoute role="Administrador">
                   <DailySummaryPage />
                 </ProtectedRoute>
               }
