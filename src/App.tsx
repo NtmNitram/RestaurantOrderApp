@@ -8,6 +8,7 @@ import NewOrderPage from './pages/NewOrderPage'
 import OrdersPage from './pages/OrdersPage'
 import DailySummaryPage from './pages/DailySummaryPage'
 import MenuPage from './pages/MenuPage'
+import VajillaPage from './pages/VajillaPage'
 
 export default function App() {
   return (
@@ -27,6 +28,7 @@ export default function App() {
             <Route path="clientes" element={<ClientsPage />} />
             <Route path="nuevo-pedido/:clientId" element={<NewOrderPage />} />
             <Route path="pedidos" element={<OrdersPage />} />
+            <Route path="vajilla" element={<VajillaPage />} />
             <Route
               path="menu"
               element={

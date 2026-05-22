@@ -35,6 +35,7 @@ export interface Order {
   nombreCliente: string
   localCliente: string | null
   referenciaCliente: string | null
+  tipoCliente: string // "Externo" | "Domicilio" | "Mesa"
   fechaPedido: string
   estado: string // "Pendiente" | "Entregado" | "Cancelado"
   estadoCobro: string // "Pendiente de cobro" | "Cobrado"
@@ -79,6 +80,29 @@ export interface CreateOrderDto {
   clienteId: number
   notas: string
   articulos: { articuloId: number; cantidad: number }[]
+}
+
+export interface Tableware {
+  id: number
+  orderId: number
+  nombreCliente: string
+  referencia: string | null
+  itemType: string
+  quantityDelivered: number
+  quantityRecovered: number | null
+  pendiente: number
+  deliveredAt: string
+  recoveredAt: string | null
+}
+
+export interface RegisterTablewareDto {
+  orderId: number
+  itemType: string
+  quantityDelivered: number
+}
+
+export interface RecoverTablewareDto {
+  quantityRecovered: number
 }
 
 export interface CreateClientDto {

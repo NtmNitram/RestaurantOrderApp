@@ -1,8 +1,9 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { UtensilsCrossed, Users, ClipboardList, BarChart3, LogOut, BookOpen } from 'lucide-react'
+import { UtensilsCrossed, Users, ClipboardList, BarChart3, LogOut, BookOpen, Archive } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '../context/AuthContext'
 import { getOrders } from '../api/orders'
+import { getPendingTableware } from '../api/tableware'
 
 export default function Layout() {
   const { role, username, logout } = useAuth()
@@ -12,6 +13,9 @@ export default function Layout() {
   const { data: orders } = useQuery({ queryKey: ['orders'], queryFn: getOrders })
   const pendingCount = orders?.filter(o => o.estadoCobro !== 'Cobrado' && o.estado !== 'Cancelado').length ?? 0
 
+  const { data: tableware } = useQuery({ queryKey: ['tableware-pending'], queryFn: getPendingTableware })
+  const vajillaCount = tableware?.length ?? 0
+
   const handleLogout = async () => {
     await logout()
     navigate('/login')
@@ -20,6 +24,7 @@ export default function Layout() {
   const navLinks = [
     { to: '/clientes', label: 'Clientes', icon: <Users className="w-5 h-5" /> },
     { to: '/pedidos', label: 'Pedidos', icon: <ClipboardList className="w-5 h-5" />, badge: pendingCount },
+    { to: '/vajilla', label: 'Vajilla', icon: <Archive className="w-5 h-5" />, badge: vajillaCount },
     ...(isDueño ? [
       { to: '/menu', label: 'Menú', icon: <BookOpen className="w-5 h-5" /> },
       { to: '/resumen', label: 'Resumen', icon: <BarChart3 className="w-5 h-5" /> },

@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getOrders, changeOrderStatus, changePaymentStatus, addItemsToOrder } from '../api/orders'
+import { registerTableware } from '../api/tableware'
 import { getMenuItems } from '../api/menuItems'
 import type { Order } from '../types'
-import { CheckCircle, XCircle, Clock, MapPin, Navigation, Banknote, PlusCircle, Plus, Minus, X, Search } from 'lucide-react'
+import { CheckCircle, XCircle, Clock, MapPin, Navigation, Banknote, PlusCircle, Plus, Minus, X, Search, Archive } from 'lucide-react'
 
 const STATUS_STYLE: Record<string, { bg: string; text: string; icon: React.ReactNode }> = {
   Pendiente: {
@@ -124,10 +125,98 @@ function AddItemsModal({ order, onClose }: { order: Order; onClose: () => void }
   )
 }
 
+function TablewareModal({ order, onClose }: { order: Order; onClose: () => void }) {
+  const queryClient = useQueryClient()
+  const [platos, setPlatos] = useState(1)
+
+  const entregarMutation = useMutation({
+    mutationFn: () => changeOrderStatus(order.id, 1),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['orders'] }),
+  })
+
+  const entregarConVajilla = useMutation({
+    mutationFn: async () => {
+      await changeOrderStatus(order.id, 1)
+      await registerTableware({ orderId: order.id, itemType: 'Plato', quantityDelivered: platos })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['orders'] })
+      queryClient.invalidateQueries({ queryKey: ['tableware-pending'] })
+      onClose()
+    },
+  })
+
+  const handleSinVajilla = async () => {
+    await entregarMutation.mutateAsync()
+    onClose()
+  }
+
+  const isPending = entregarMutation.isPending || entregarConVajilla.isPending
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="relative bg-white w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl shadow-xl p-5">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-base font-bold text-gray-800">Registrar entrega</h2>
+            <p className="text-xs text-gray-500 mt-0.5">{order.nombreCliente}</p>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-500">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <p className="text-sm text-gray-600 mb-4">¿Cuántos platos entregas con este pedido?</p>
+
+        <div className="flex items-center justify-center gap-4 mb-6">
+          <button
+            onClick={() => setPlatos(p => Math.max(1, p - 1))}
+            disabled={platos <= 1}
+            className="w-10 h-10 rounded-full border border-gray-300 text-gray-600 hover:bg-gray-100 disabled:opacity-30 flex items-center justify-center"
+          >
+            <Minus className="w-4 h-4" />
+          </button>
+          <span className="text-3xl font-bold text-gray-800 w-12 text-center">{platos}</span>
+          <button
+            onClick={() => setPlatos(p => p + 1)}
+            className="w-10 h-10 rounded-full bg-orange-500 text-white hover:bg-orange-600 flex items-center justify-center"
+          >
+            <Plus className="w-4 h-4" />
+          </button>
+        </div>
+
+        {(entregarMutation.isError || entregarConVajilla.isError) && (
+          <p className="text-xs text-red-600 mb-3 text-center">Error. Intenta de nuevo.</p>
+        )}
+
+        <div className="flex flex-col gap-2">
+          <button
+            onClick={() => entregarConVajilla.mutate()}
+            disabled={isPending}
+            className="w-full flex items-center justify-center gap-2 bg-green-500 text-white py-3 rounded-xl font-medium hover:bg-green-600 disabled:opacity-50 transition-colors"
+          >
+            <Archive className="w-4 h-4" />
+            {entregarConVajilla.isPending ? 'Guardando...' : `Entregar + registrar ${platos} plato${platos !== 1 ? 's' : ''}`}
+          </button>
+          <button
+            onClick={handleSinVajilla}
+            disabled={isPending}
+            className="w-full py-2.5 rounded-xl text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+          >
+            {entregarMutation.isPending ? 'Guardando...' : 'Entregar sin registrar vajilla'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function OrdersPage() {
   const [tab, setTab] = useState<'pendientes' | 'todos'>('pendientes')
   const [busqueda, setBusqueda] = useState('')
   const [addItemsOrder, setAddItemsOrder] = useState<Order | null>(null)
+  const [tablewareOrder, setTablewareOrder] = useState<Order | null>(null)
   const queryClient = useQueryClient()
 
   const { data: orders, isLoading, isError } = useQuery({
@@ -169,6 +258,7 @@ export default function OrdersPage() {
   return (
     <div>
       {addItemsOrder && <AddItemsModal order={addItemsOrder} onClose={() => setAddItemsOrder(null)} />}
+      {tablewareOrder && <TablewareModal order={tablewareOrder} onClose={() => setTablewareOrder(null)} />}
 
       <div className="mb-4">
         <h1 className="text-2xl font-bold text-gray-800">Pedidos del día</h1>
@@ -281,7 +371,11 @@ export default function OrdersPage() {
                         <PlusCircle className="w-4 h-4" />
                       </button>
                       <button
-                        onClick={() => statusMutation.mutate({ id: order.id, estado: 1 })}
+                        onClick={() =>
+                          order.tipoCliente === 'Externo'
+                            ? setTablewareOrder(order)
+                            : statusMutation.mutate({ id: order.id, estado: 1 })
+                        }
                         disabled={statusMutation.isPending}
                         className="flex items-center gap-1.5 bg-green-500 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-green-600 disabled:opacity-50 transition-colors"
                       >

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getClients, createClient, deleteClient } from '../api/clients'
 import { useNavigate } from 'react-router-dom'
-import { Plus, MapPin, Navigation, X, UserPlus, Trash2, Phone, Home, UtensilsCrossed, Search } from 'lucide-react'
+import { Plus, Navigation, X, UserPlus, Trash2, Phone, Home, UtensilsCrossed, Search } from 'lucide-react'
 
 function NewClientModal({ onClose }: { onClose: () => void }) {
   const queryClient = useQueryClient()
