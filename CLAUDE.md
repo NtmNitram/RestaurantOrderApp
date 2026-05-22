@@ -322,3 +322,4 @@ DailySummaryDto {
 - La recuperación de vajilla es acumulativa — se puede llamar varias veces hasta agotar `QuantityDelivered`.
 - Roles renombrados 2026-05-21: `"Dueño"` → `"Administrador"`, `"Mesero"` → `"Empleado"`. El seeder detecta roles legacy al arrancar y los migra automáticamente — no requiere tocar la BD manualmente.
 - Navbar muestra solo el rol en naranja (no el username) — evita exponer nombres de usuario técnicos como "dueno".
+- **Bug corregido 2026-05-22:** `GetDailySummaryAsync` usaba `startDate.Date` que produce `DateTime` con `Kind = Unspecified`. Npgsql rechaza comparar ese tipo contra columnas `timestamp with time zone` → excepción 500 en `GET /summary/daily`. Fix: `DateTime.SpecifyKind(startDate.Date, DateTimeKind.Utc)`. Regla general: toda fecha que entre al repositorio como parámetro de query debe tener `Kind = Utc` explícito.
