@@ -115,12 +115,12 @@ El restaurante operaba con papeles: mesero escribe pedido a mano, lleva copia a 
 
 ### Pendiente de implementar (actualizado)
 
-- [ ] Control de vajilla (en curso — backend completo, falta frontend)
+- ✅ Control de vajilla (completo — 2026-05-21)
   - ✅ Paso 1: Entidad `OrderTableware` + migración EF Core
   - ✅ Paso 2: `IOrderTablewareRepository` + implementación + UnitOfWork
   - ✅ Paso 3: DTOs + `ITablewareService` + `TablewareService`
   - ✅ Paso 4: `TablewareController` + registro en `Program.cs`
-  - [ ] Paso 5: Frontend — pantalla de vajilla
+  - ✅ Paso 5: Frontend — `VajillaPage` + modal en `OrdersPage` + navbar
 - [ ] Pantalla de cocina — polling 30s, solo pedidos Pending (Fase 1)
 - [ ] Rol "Cocina" — solo ve pantalla de cocina
 - [ ] Rol "Cajera" — solo ve pedidos Delivered+PendienteCobro, marca Cobrado (Fase 2)
@@ -193,6 +193,7 @@ Cobro al cierre → PaymentStatus: Cobrado
 | `/clientes` | ClientsPage | Cualquiera autenticado |
 | `/nuevo-pedido/:clientId` | NewOrderPage | Cualquiera autenticado |
 | `/pedidos` | OrdersPage | Cualquiera autenticado |
+| `/vajilla` | VajillaPage | Cualquiera autenticado |
 | `/menu` | MenuPage | Solo Dueño |
 | `/resumen` | DailySummaryPage | Solo Dueño |
 
