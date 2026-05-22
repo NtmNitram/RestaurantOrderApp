@@ -73,7 +73,7 @@ RestaurantOrderAPI/src/
 
 ---
 
-## Módulo 1 — Estado actual (al 2026-05-16)
+## Módulo 1 — Estado actual (al 2026-05-21)
 
 ### Funcionalidades implementadas
 
@@ -97,6 +97,9 @@ RestaurantOrderAPI/src/
 | Badge del navbar refleja pendientes de cobro | ✅ | — |
 | Resumen diario con Por cobrar y Cobrado (global y por cliente) | ✅ | ✅ |
 | CRUD de menú completo (solo Dueño) | ✅ | ✅ |
+| Control de vajilla: registrar al entregar (modal en OrdersPage) | ✅ | ✅ |
+| Control de vajilla: lista de pendientes + recuperación inline | ✅ | ✅ |
+| Badge del navbar refleja vajilla pendiente de recuperar | ✅ | — |
 
 ### Flujo operativo definido (2026-05-16)
 
@@ -156,6 +159,20 @@ PaymentStatus (PendienteCobro/Cobrado),
 Notes?, Total
 → OrderDetails: MenuItemId, Quantity, UnitPrice, Subtotal
 ```
+
+### OrderTableware
+```
+Id, OrderId, RestaurantId,
+ItemType (default "Plato"),
+QuantityDelivered, QuantityRecovered?,
+DeliveredAt (UTC), RecoveredAt? (UTC)
+→ Order (nav. property)
+```
+- Solo aplica a pedidos de clientes tipo `Externo`.
+- Un pedido tiene máximo un registro de vajilla.
+- La recuperación es acumulativa (`QuantityRecovered` se suma en cada llamada a `/recover`).
+- `Pendiente` = `QuantityDelivered - (QuantityRecovered ?? 0)`.
+- `GET /pending` filtra donde `QuantityRecovered is null || QuantityRecovered < QuantityDelivered`.
 
 ### User
 ```
@@ -294,3 +311,6 @@ DailySummaryDto {
 - `tokenStore` es un módulo puente (get/set/register) que evita el import circular entre `client.ts` y `AuthContext.tsx`.
 - `isAuthenticated` se basa en `role` (localStorage) y no en el token, para que el estado de sesión sobreviva reloads mientras el interceptor renueva el token silenciosamente.
 - Refresh token: cookie `httpOnly; SameSite=Strict; Secure` (en HTTPS). Expira en 7 días. Se rota en cada uso — un token solo es válido una vez.
+- `OrderResponseDto` incluye `TipoCliente` para que el frontend distinga pedidos Externo sin consulta adicional.
+- Al marcar Entregado en `OrdersPage`: si `tipoCliente === 'Externo'` se abre un modal de vajilla; para Mesa/Domicilio se entrega directamente.
+- La recuperación de vajilla es acumulativa — se puede llamar varias veces hasta agotar `QuantityDelivered`.
