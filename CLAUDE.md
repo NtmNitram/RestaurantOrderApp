@@ -75,7 +75,7 @@ RestaurantOrderAPI/src/
 
 ---
 
-## Módulo 1 — Estado actual (al 2026-05-21)
+## Módulo 1 — Estado actual (al 2026-05-22)
 
 ### Funcionalidades implementadas
 
@@ -101,7 +101,10 @@ RestaurantOrderAPI/src/
 | CRUD de menú completo (solo Administrador) | ✅ | ✅ |
 | Control de vajilla: registrar al entregar (modal en OrdersPage) | ✅ | ✅ |
 | Control de vajilla: lista de pendientes + recuperación inline | ✅ | ✅ |
+| Recuperación de vajilla restringida a Administrador | ✅ | ✅ |
 | Badge del navbar refleja vajilla pendiente de recuperar | ✅ | — |
+| Navbar muestra solo el rol (no el username) | ✅ | — |
+| Roles renombrados: Administrador / Empleado | ✅ | ✅ |
 
 ### Flujo operativo definido (2026-05-16)
 
@@ -247,7 +250,7 @@ Cobro al cierre → PaymentStatus: Cobrado
 - `GET /pending` — vajilla pendiente de recuperar (autenticado)
 - `GET /order/{orderId}` — vajilla registrada para un pedido específico
 - `POST /` — registrar vajilla entregada `{ orderId, itemType, quantityDelivered }` (solo clientes Externo)
-- `PATCH /order/{orderId}/recover` — registrar recuperación `{ quantityRecovered }` (acumulativa)
+- `PATCH /order/{orderId}/recover` — registrar recuperación `{ quantityRecovered }` (acumulativa) **(solo Administrador)**
 
 **Auth** `api/auth`
 - `POST /login` — `{ username, password }` → `{ token, role, username, restaurantId }` + cookie httpOnly `refreshToken`
@@ -317,3 +320,5 @@ DailySummaryDto {
 - **Bug corregido 2026-05-17:** `ClientService` no inyectaba `ICurrentRestaurantService` → `RestaurantId` llegaba vacío → FK violation 500. Fix: inyectar igual que `OrderService` y `MenuItemService`. **Regla:** todo servicio que crea entidades con `RestaurantId` DEBE inyectar `ICurrentRestaurantService`. Verificado al 2026-05-21: `OrderService`, `MenuItemService`, `ClientService` y `TablewareService` lo inyectan correctamente.
 - Al marcar Entregado en `OrdersPage`: si `tipoCliente === 'Externo'` se abre un modal de vajilla; para Mesa/Domicilio se entrega directamente.
 - La recuperación de vajilla es acumulativa — se puede llamar varias veces hasta agotar `QuantityDelivered`.
+- Roles renombrados 2026-05-21: `"Dueño"` → `"Administrador"`, `"Mesero"` → `"Empleado"`. El seeder detecta roles legacy al arrancar y los migra automáticamente — no requiere tocar la BD manualmente.
+- Navbar muestra solo el rol en naranja (no el username) — evita exponer nombres de usuario técnicos como "dueno".
