@@ -59,9 +59,7 @@ export default function Layout() {
           ))}
 
           <div className="ml-auto flex items-center gap-3">
-            <span className="text-xs text-gray-400">
-              {username} · <span className="text-orange-400">{role}</span>
-            </span>
+            <span className="text-xs text-orange-400 font-medium">{role}</span>
             <button
               onClick={handleLogout}
               className="flex items-center gap-1.5 text-gray-400 hover:text-white text-sm transition-colors"
@@ -80,7 +78,7 @@ export default function Layout() {
           <span className="font-bold text-white">El Arca de Adán</span>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-xs text-gray-400">{username}</span>
+          <span className="text-xs text-orange-400 font-medium">{role}</span>
           <button onClick={handleLogout} className="text-gray-400 hover:text-white transition-colors">
             <LogOut className="w-4 h-4" />
           </button>
