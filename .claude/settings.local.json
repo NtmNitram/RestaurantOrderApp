@@ -30,7 +30,8 @@
       "Bash(netstat -ano)",
       "Bash(xargs grep -l \"\")",
       "Bash(xargs cat)",
-      "Bash(PGPASSWORD=postgres123 /c/Program Files/PostgreSQL/18/bin/psql.exe *)"
+      "Bash(PGPASSWORD=postgres123 /c/Program Files/PostgreSQL/18/bin/psql.exe *)",
+      "Bash(npm run *)"
     ]
   }
 }
