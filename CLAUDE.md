@@ -43,7 +43,7 @@ RestaurantOrderAPI/src/
   EF Core global query filters filtran por restaurante automáticamente.
   `ICurrentRestaurantService` lee el `restaurantId` del JWT (`CurrentRestaurantService`).
   Login usa `IgnoreQueryFilters()` porque el restaurantId aún no se conoce.
-  `OrderService` y `MenuItemService` inyectan `ICurrentRestaurantService` para asignar `RestaurantId` al crear.
+  `OrderService`, `MenuItemService`, `ClientService` y `TablewareService` inyectan `ICurrentRestaurantService` para asignar `RestaurantId` al crear. Todo servicio nuevo que cree entidades debe seguir este patrón.
 - Autenticación: **JWT Bearer Token** (access token en memoria) + **Refresh Token** (cookie httpOnly, 7 días, rotación en cada uso).
 - Roles actuales: `"Administrador"`, `"Empleado"` (credenciales semilla: admin/admin123, empleado/empleado123).
   Roles Fase 1: + `"Cocina"` (solo ve pantalla de cocina).
