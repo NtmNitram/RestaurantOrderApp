@@ -105,6 +105,7 @@ RestaurantOrderAPI/src/
 | Badge del navbar refleja vajilla pendiente de recuperar | ✅ | — |
 | Navbar muestra solo el rol (no el username) | ✅ | — |
 | Roles renombrados: Administrador / Empleado | ✅ | ✅ |
+| Pantalla de cocina `/cocina` (polling 15s, sin auth, sonido Web Audio) | ✅ | ✅ |
 
 ### Flujo operativo definido (2026-05-16)
 
@@ -129,8 +130,8 @@ El restaurante operaba con papeles: mesero escribe pedido a mano, lleva copia a 
   - ✅ Paso 3: DTOs + `ITablewareService` + `TablewareService`
   - ✅ Paso 4: `TablewareController` + registro en `Program.cs`
   - ✅ Paso 5: Frontend — `VajillaPage` + modal en `OrdersPage` + navbar
-- [ ] Pantalla de cocina — polling 30s, solo pedidos Pending (Fase 1)
-- [ ] Rol "Cocina" — solo ve pantalla de cocina
+- ✅ Pantalla de cocina `/cocina` — polling 15s, pedidos Pending, sin auth (2026-05-22)
+- [ ] Rol "Cocina" — solo ve pantalla de cocina (siguiente paso)
 - [ ] Rol "Cajera" — solo ve pedidos Delivered+PendienteCobro, marca Cobrado (Fase 2)
 - [ ] Flujo de cierre de ronda / DeliveryRound (después de vajilla)
 
@@ -212,6 +213,7 @@ Cobro al cierre → PaymentStatus: Cobrado
 | Ruta | Página | Rol requerido |
 |---|---|---|
 | `/login` | LoginPage | — |
+| `/cocina` | CocinaPage | Sin auth (anónimo) |
 | `/clientes` | ClientsPage | Cualquiera autenticado |
 | `/nuevo-pedido/:clientId` | NewOrderPage | Cualquiera autenticado |
 | `/pedidos` | OrdersPage | Cualquiera autenticado |
@@ -239,7 +241,7 @@ Cobro al cierre → PaymentStatus: Cobrado
 - `DELETE /{id}` — eliminar **(solo Administrador)**
 
 **Órdenes** `api/orders`
-- `GET /` — pedidos del día
+- `GET /` — pedidos del día **(AllowAnonymous — usado por pantalla de cocina)**
 - `POST /` — crear pedido `{ clienteId, notas?, articulos: [{articuloId, cantidad}] }`
 - `POST /{id}/items` — agregar artículos a pedido Pendiente (acumula si ya existe)
 - `PATCH /{id}/status` — cambiar estado entrega `{ estado: 0|1|2 }`
@@ -323,3 +325,4 @@ DailySummaryDto {
 - Roles renombrados 2026-05-21: `"Dueño"` → `"Administrador"`, `"Mesero"` → `"Empleado"`. El seeder detecta roles legacy al arrancar y los migra automáticamente — no requiere tocar la BD manualmente.
 - Navbar muestra solo el rol en naranja (no el username) — evita exponer nombres de usuario técnicos como "dueno".
 - **Bug corregido 2026-05-22:** `GetDailySummaryAsync` usaba `startDate.Date` que produce `DateTime` con `Kind = Unspecified`. Npgsql rechaza comparar ese tipo contra columnas `timestamp with time zone` → excepción 500 en `GET /summary/daily`. Fix: `DateTime.SpecifyKind(startDate.Date, DateTimeKind.Utc)`. Regla general: toda fecha que entre al repositorio como parámetro de query debe tener `Kind = Utc` explícito.
+- **Pantalla de cocina (2026-05-22):** `GET /api/orders` es `[AllowAnonymous]` para que la tableta de cocina funcione sin login. Los filtros globales de EF Core pasan todos los registros cuando `RestaurantId == 0` (petición sin JWT). `cocina.ts` usa un axios sin interceptor de auth para no redirigir a `/login`. El beep usa Web Audio API (sin dependencias externas); Chrome requiere clic del usuario antes de crear `AudioContext` → botón "Activar sonido".
