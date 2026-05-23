@@ -6,7 +6,7 @@ import { getOrders } from '../api/orders'
 import { getPendingTableware } from '../api/tableware'
 
 export default function Layout() {
-  const { role, username, logout } = useAuth()
+  const { role, logout } = useAuth()
   const navigate = useNavigate()
   const isAdmin = role === 'Administrador'
 

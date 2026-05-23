@@ -9,6 +9,7 @@ import OrdersPage from './pages/OrdersPage'
 import DailySummaryPage from './pages/DailySummaryPage'
 import MenuPage from './pages/MenuPage'
 import VajillaPage from './pages/VajillaPage'
+import CocinaPage from './pages/CocinaPage'
 
 export default function App() {
   return (
@@ -16,6 +17,7 @@ export default function App() {
       <AuthProvider>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/cocina" element={<CocinaPage />} />
           <Route
             path="/"
             element={
