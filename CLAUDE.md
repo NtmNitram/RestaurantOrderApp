@@ -105,7 +105,9 @@ RestaurantOrderAPI/src/
 | Badge del navbar refleja vajilla pendiente de recuperar | ✅ | — |
 | Navbar muestra solo el rol (no el username) | ✅ | — |
 | Roles renombrados: Administrador / Empleado | ✅ | ✅ |
-| Pantalla de cocina `/cocina` (polling 15s, sin auth, sonido Web Audio) | ✅ | ✅ |
+| Pantalla de cocina — polling 15s, flash + beep al llegar pedidos | ✅ | ✅ |
+| Login dedicado para rol Cocina en /cocina | ✅ | ✅ |
+| Usuario cocina/cocina123 en seeder | — | ✅ |
 
 ### Flujo operativo definido (2026-05-16)
 
@@ -130,8 +132,8 @@ El restaurante operaba con papeles: mesero escribe pedido a mano, lleva copia a 
   - ✅ Paso 3: DTOs + `ITablewareService` + `TablewareService`
   - ✅ Paso 4: `TablewareController` + registro en `Program.cs`
   - ✅ Paso 5: Frontend — `VajillaPage` + modal en `OrdersPage` + navbar
-- ✅ Pantalla de cocina `/cocina` — polling 15s, pedidos Pending, sin auth (2026-05-22)
-- [ ] Rol "Cocina" — solo ve pantalla de cocina (siguiente paso)
+- ✅ Pantalla de cocina `/cocina` — polling 15s, flash + beep, rol Cocina con login inline (2026-05-22)
+- ✅ Rol "Cocina" — solo ve pantalla de cocina (2026-05-22)
 - [ ] Rol "Cajera" — solo ve pedidos Delivered+PendienteCobro, marca Cobrado (Fase 2)
 - [ ] Flujo de cierre de ronda / DeliveryRound (después de vajilla)
 
@@ -213,7 +215,7 @@ Cobro al cierre → PaymentStatus: Cobrado
 | Ruta | Página | Rol requerido |
 |---|---|---|
 | `/login` | LoginPage | — |
-| `/cocina` | CocinaPage | Rol "Cocina" (login inline si no hay sesión) |
+| `/cocina` | CocinaPage | Rol Cocina (login propio) |
 | `/clientes` | ClientsPage | Cualquiera autenticado |
 | `/nuevo-pedido/:clientId` | NewOrderPage | Cualquiera autenticado |
 | `/pedidos` | OrdersPage | Cualquiera autenticado |
@@ -241,7 +243,7 @@ Cobro al cierre → PaymentStatus: Cobrado
 - `DELETE /{id}` — eliminar **(solo Administrador)**
 
 **Órdenes** `api/orders`
-- `GET /` — pedidos del día (autenticado — accesible para roles Administrador, Empleado, Cocina)
+- `GET /` — pedidos del día — roles: Administrador, Empleado, Cocina
 - `POST /` — crear pedido `{ clienteId, notas?, articulos: [{articuloId, cantidad}] }`
 - `POST /{id}/items` — agregar artículos a pedido Pendiente (acumula si ya existe)
 - `PATCH /{id}/status` — cambiar estado entrega `{ estado: 0|1|2 }`
@@ -325,4 +327,6 @@ DailySummaryDto {
 - Roles renombrados 2026-05-21: `"Dueño"` → `"Administrador"`, `"Mesero"` → `"Empleado"`. El seeder detecta roles legacy al arrancar y los migra automáticamente — no requiere tocar la BD manualmente.
 - Navbar muestra solo el rol en naranja (no el username) — evita exponer nombres de usuario técnicos como "dueno".
 - **Bug corregido 2026-05-22:** `GetDailySummaryAsync` usaba `startDate.Date` que produce `DateTime` con `Kind = Unspecified`. Npgsql rechaza comparar ese tipo contra columnas `timestamp with time zone` → excepción 500 en `GET /summary/daily`. Fix: `DateTime.SpecifyKind(startDate.Date, DateTimeKind.Utc)`. Regla general: toda fecha que entre al repositorio como parámetro de query debe tener `Kind = Utc` explícito.
-- **Pantalla de cocina (2026-05-22):** `GET /api/orders` requiere autenticación (`[Authorize]`). La tableta de cocina usa el rol `"Cocina"` (usuario: cocina/cocina123). `CocinaPage` muestra login inline cuando no hay sesión con ese rol; al autenticarse con otro rol muestra error y hace logout. `useCocinaOrders` usa `getOrders` (interceptor JWT) con `select` para filtrar Pendientes. El beep usa Web Audio API; Chrome requiere clic antes de `AudioContext` → botón "Activar sonido". Sesión dura 7 días (refresh token) — la tableta no necesita re-login frecuente.
+- **Pantalla de cocina (2026-05-22):** `GET /api/orders` requiere autenticación (`[Authorize]`). La tableta de cocina usa el rol `"Cocina"` (usuario: cocina/cocina123). `useCocinaOrders` usa `getOrders` (interceptor JWT) con `select` para filtrar Pendientes. El beep usa Web Audio API; Chrome requiere clic antes de `AudioContext` → botón "Activar sonido". Sesión dura 7 días (refresh token) — la tableta no necesita re-login frecuente.
+- Pantalla de cocina usa rol dedicado `"Cocina"` (cocina/cocina123) — nunca `[AllowAnonymous]` ni passthrough de `RestaurantId`. La tableta hace login una vez; el refresh token dura 7 días.
+- `CocinaPage` tiene dos estados: `CocinaLogin` (si `role !== 'Cocina'`) y `CocinaScreen` (si `role === 'Cocina'`). Intento de acceso con otro rol hace logout automático.
