@@ -45,8 +45,8 @@ RestaurantOrderAPI/src/
   Login usa `IgnoreQueryFilters()` porque el restaurantId aún no se conoce.
   `OrderService`, `MenuItemService`, `ClientService` y `TablewareService` inyectan `ICurrentRestaurantService` para asignar `RestaurantId` al crear. Todo servicio nuevo que cree entidades debe seguir este patrón.
 - Autenticación: **JWT Bearer Token** (access token en memoria) + **Refresh Token** (cookie httpOnly, 7 días, rotación en cada uso).
-- Roles actuales: `"Administrador"`, `"Empleado"` (credenciales semilla: admin/admin123, empleado/empleado123).
-  Roles Fase 1: + `"Cocina"` (solo ve pantalla de cocina).
+- Roles actuales: `"Administrador"`, `"Empleado"`, `"Cocina"` (credenciales semilla: admin/admin123, empleado/empleado123, cocina/cocina123).
+  El rol `"Cocina"` solo puede acceder a `GET /api/orders` — todos los demás endpoints requieren roles específicos.
   Roles Fase 2: + `"Cajera"` (solo ve pedidos Delivered+PendienteCobro, marca Cobrado).
 - CORS: `WithOrigins(allowedOrigins)` + `AllowCredentials()`. Orígenes configurados en `appsettings.json` (`Cors:AllowedOrigins`).
 - Fechas: usar siempre `DateTime.UtcNow` — PostgreSQL/Npgsql rechaza `DateTime.Now` (hora local).
@@ -213,7 +213,7 @@ Cobro al cierre → PaymentStatus: Cobrado
 | Ruta | Página | Rol requerido |
 |---|---|---|
 | `/login` | LoginPage | — |
-| `/cocina` | CocinaPage | Sin auth (anónimo) |
+| `/cocina` | CocinaPage | Rol "Cocina" (login inline si no hay sesión) |
 | `/clientes` | ClientsPage | Cualquiera autenticado |
 | `/nuevo-pedido/:clientId` | NewOrderPage | Cualquiera autenticado |
 | `/pedidos` | OrdersPage | Cualquiera autenticado |
@@ -241,7 +241,7 @@ Cobro al cierre → PaymentStatus: Cobrado
 - `DELETE /{id}` — eliminar **(solo Administrador)**
 
 **Órdenes** `api/orders`
-- `GET /` — pedidos del día **(AllowAnonymous — usado por pantalla de cocina)**
+- `GET /` — pedidos del día (autenticado — accesible para roles Administrador, Empleado, Cocina)
 - `POST /` — crear pedido `{ clienteId, notas?, articulos: [{articuloId, cantidad}] }`
 - `POST /{id}/items` — agregar artículos a pedido Pendiente (acumula si ya existe)
 - `PATCH /{id}/status` — cambiar estado entrega `{ estado: 0|1|2 }`
@@ -325,4 +325,4 @@ DailySummaryDto {
 - Roles renombrados 2026-05-21: `"Dueño"` → `"Administrador"`, `"Mesero"` → `"Empleado"`. El seeder detecta roles legacy al arrancar y los migra automáticamente — no requiere tocar la BD manualmente.
 - Navbar muestra solo el rol en naranja (no el username) — evita exponer nombres de usuario técnicos como "dueno".
 - **Bug corregido 2026-05-22:** `GetDailySummaryAsync` usaba `startDate.Date` que produce `DateTime` con `Kind = Unspecified`. Npgsql rechaza comparar ese tipo contra columnas `timestamp with time zone` → excepción 500 en `GET /summary/daily`. Fix: `DateTime.SpecifyKind(startDate.Date, DateTimeKind.Utc)`. Regla general: toda fecha que entre al repositorio como parámetro de query debe tener `Kind = Utc` explícito.
-- **Pantalla de cocina (2026-05-22):** `GET /api/orders` es `[AllowAnonymous]` para que la tableta de cocina funcione sin login. Los filtros globales de EF Core pasan todos los registros cuando `RestaurantId == 0` (petición sin JWT). `cocina.ts` usa un axios sin interceptor de auth para no redirigir a `/login`. El beep usa Web Audio API (sin dependencias externas); Chrome requiere clic del usuario antes de crear `AudioContext` → botón "Activar sonido".
+- **Pantalla de cocina (2026-05-22):** `GET /api/orders` requiere autenticación (`[Authorize]`). La tableta de cocina usa el rol `"Cocina"` (usuario: cocina/cocina123). `CocinaPage` muestra login inline cuando no hay sesión con ese rol; al autenticarse con otro rol muestra error y hace logout. `useCocinaOrders` usa `getOrders` (interceptor JWT) con `select` para filtrar Pendientes. El beep usa Web Audio API; Chrome requiere clic antes de `AudioContext` → botón "Activar sonido". Sesión dura 7 días (refresh token) — la tableta no necesita re-login frecuente.
