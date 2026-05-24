@@ -283,23 +283,33 @@ DailySummaryDto {
 
 ---
 
-## Deploy (pendiente)
+## Deploy
 
 | Capa | Plataforma | Estado |
 |---|---|---|
-| Frontend | Vercel | Pendiente — repo listo, falta configurar VITE_API_URL con URL de Railway |
-| Backend | Railway | Pendiente — conectar repo RestaurantOrderAPI |
+| Frontend | Vercel | ✅ Desplegado — `vercel.json` con rewrites para React Router |
+| Backend | Railway | ✅ Desplegado — Dockerfile en raíz, variables de entorno configuradas |
+| Base de datos | Railway PostgreSQL | ✅ Provisionada — `MigrateAsync` + seeder corren al arrancar |
 
-### Instrucciones Railway (backend)
-1. railway.app → Sign in with GitHub
-2. New Project → Deploy from GitHub repo → `RestaurantOrderAPI`
-3. Settings → Networking → Generate Domain → copiar URL
-4. Esa URL va como `VITE_API_URL` en Vercel
+### Variables de entorno en Railway (backend)
+| Variable | Descripción |
+|---|---|
+| `ConnectionStrings__DefaultConnection` | Connection string Npgsql de PostgreSQL en Railway |
+| `Jwt__Key` | Clave secreta para firmar JWT |
+| `Jwt__Issuer` | Issuer del JWT (`RestaurantOrderAPI`) |
+| `Jwt__Audience` | Audience del JWT (`RestaurantOrderApp`) |
+| `Cors__AllowedOrigins__0` | URL del frontend en Vercel |
 
-### PostgreSQL en Railway
-1. railway.app → New Project → Add a Service → Database → PostgreSQL
-2. Copiar connection string (formato Npgsql): `Host=...;Port=...;Database=...;Username=...;Password=...`
-3. Pegarlo como variable de entorno `ConnectionStrings__DefaultConnection` en el servicio del backend
+### Arranque en Railway
+1. Docker build con `Dockerfile` en raíz
+2. `await db.Database.MigrateAsync()` — aplica migraciones pendientes
+3. `await DbSeeder.SeedAsync(db)` — crea restaurante, usuarios y menú si no existen
+
+### Seguridad del repo (auditado 2026-05-23)
+- `appsettings.Development.json` — gitignoreado (`appsettings.*.json`)
+- `.env` del frontend — gitignoreado y removido del tracking
+- `appsettings.json` base — solo placeholders, commiteado sin secretos
+- `node_modules/` y `FrontendRestaurant/` removidos de la raíz del backend
 
 ---
 
