@@ -75,7 +75,7 @@ RestaurantOrderAPI/src/
 
 ---
 
-## Módulo 1 — Estado actual (al 2026-05-22)
+## Módulo 1 — Estado actual (al 2026-05-25)
 
 ### Funcionalidades implementadas
 
@@ -108,6 +108,8 @@ RestaurantOrderAPI/src/
 | Pantalla de cocina — polling 15s, flash + beep al llegar pedidos | ✅ | ✅ |
 | Login dedicado para rol Cocina en /cocina | ✅ | ✅ |
 | Usuario cocina/cocina123 en seeder | — | ✅ |
+| Agregar artículos a pedidos Entregados+PendienteCobro | ✅ | ✅ |
+| Login inputs: autoCapitalize, lowercase, placeholders correctos | ✅ | — |
 
 ### Flujo operativo definido (2026-05-16)
 
@@ -198,8 +200,8 @@ Id, Name, IsActive
 
 ```
 Toma de pedido → Status: Pending, PaymentStatus: PendienteCobro
-     ↓ (se pueden agregar más artículos mientras esté Pending)
-Entrega → Status: Delivered
+     ↓ (se pueden agregar más artículos mientras PaymentStatus == PendienteCobro)
+Entrega → Status: Delivered        ← también permite agregar artículos
      ↓
 Cobro al cierre → PaymentStatus: Cobrado
 ```
@@ -245,7 +247,7 @@ Cobro al cierre → PaymentStatus: Cobrado
 **Órdenes** `api/orders`
 - `GET /` — pedidos del día — roles: Administrador, Empleado, Cocina
 - `POST /` — crear pedido `{ clienteId, notas?, articulos: [{articuloId, cantidad}] }`
-- `POST /{id}/items` — agregar artículos a pedido Pendiente (acumula si ya existe)
+- `POST /{id}/items` — agregar artículos (válido mientras `PaymentStatus == PendienteCobro`, incluye Entregados)
 - `PATCH /{id}/status` — cambiar estado entrega `{ estado: 0|1|2 }`
 - `PATCH /{id}/payment-status` — cambiar estado cobro `{ estadoCobro: 0|1 }`
 - `GET /summary/daily` — resumen diario **(solo Administrador)**
@@ -316,7 +318,7 @@ DailySummaryDto {
 ## Decisiones técnicas relevantes
 
 - `TotalACobrar` en resumen solo suma pedidos con `PaymentStatus = PendienteCobro`.
-- `POST /orders/{id}/items` acumula cantidad si el artículo ya existe en el pedido.
+- `POST /orders/{id}/items` acumula cantidad si el artículo ya existe en el pedido. La validación usa `PaymentStatus != PendienteCobro` (no `Status != Pending`) — permite agregar artículos a pedidos ya Entregados mientras no se hayan cobrado.
 - Las mesas no tienen botón eliminar en la UI — son fixtures permanentes.
 - El seeder usa `IgnoreQueryFilters()` para no fallar durante el arranque (antes del login).
 - Buscadores de clientes, pedidos y platillos filtran en memoria (sin llamadas extra al backend).
@@ -340,3 +342,6 @@ DailySummaryDto {
 - **Pantalla de cocina (2026-05-22):** `GET /api/orders` requiere autenticación (`[Authorize]`). La tableta de cocina usa el rol `"Cocina"` (usuario: cocina/cocina123). `useCocinaOrders` usa `getOrders` (interceptor JWT) con `select` para filtrar Pendientes. El beep usa Web Audio API; Chrome requiere clic antes de `AudioContext` → botón "Activar sonido". Sesión dura 7 días (refresh token) — la tableta no necesita re-login frecuente.
 - Pantalla de cocina usa rol dedicado `"Cocina"` (cocina/cocina123) — nunca `[AllowAnonymous]` ni passthrough de `RestaurantId`. La tableta hace login una vez; el refresh token dura 7 días.
 - `CocinaPage` tiene dos estados: `CocinaLogin` (si `role !== 'Cocina'`) y `CocinaScreen` (si `role === 'Cocina'`). Intento de acceso con otro rol hace logout automático.
+- **Seeder (2026-05-25):** el `foreach` de usuarios siempre sincroniza `PasswordHash` y `Role` en el `else` branch — garantiza que las credenciales en BD coincidan con el código en cada arranque. Útil para resetear passwords en producción sin tocar la BD manualmente.
+- **Login inputs (2026-05-25):** `LoginPage` y `CocinaLogin` usan `autoCapitalize="none"`, `autoCorrect="off"` y `onChange` que convierte el username a lowercase. Evita que móviles autocapitalicen y causen errores de autenticación.
+- **Deploy (2026-05-25):** Backend en Railway con Dockerfile, Frontend en Vercel con `vercel.json`. El seeder crea/sincroniza los 3 usuarios en cada arranque. SHA-256 de `"admin123"` = `240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9`.
