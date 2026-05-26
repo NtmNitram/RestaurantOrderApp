@@ -90,7 +90,8 @@ RestaurantOrderAPI/src/
 | Eliminar cliente (confirmación inline) | ✅ | ✅ |
 | Toma de pedido por cliente o mesa | ✅ | ✅ |
 | Buscador de platillos en pantalla "Nuevo pedido" | ✅ | — |
-| Agregar artículos a pedido Pendiente existente | ✅ | ✅ |
+| Agregar artículos a pedido (Pendiente o Entregado+PendienteCobro) | ✅ | ✅ |
+| Reactivar pedido Delivered → Pending al agregar artículos (cocina ve nuevos artículos) | — | ✅ |
 | Buscador de platillos en modal "Agregar al pedido" | ✅ | — |
 | Listado de pedidos del día con buscador | ✅ | ✅ |
 | Marcar pedido Entregado / Cancelado | ✅ | ✅ |
@@ -108,7 +109,6 @@ RestaurantOrderAPI/src/
 | Pantalla de cocina — polling 15s, flash + beep al llegar pedidos | ✅ | ✅ |
 | Login dedicado para rol Cocina en /cocina | ✅ | ✅ |
 | Usuario cocina/cocina123 en seeder | — | ✅ |
-| Agregar artículos a pedidos Entregados+PendienteCobro | ✅ | ✅ |
 | Login inputs: autoCapitalize, lowercase, placeholders correctos | ✅ | — |
 
 ### Flujo operativo definido (2026-05-16)
