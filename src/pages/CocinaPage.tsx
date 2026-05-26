@@ -40,16 +40,18 @@ function CocinaLogin() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <input
             type="text"
-            placeholder="Usuario"
+            placeholder="usuario"
             value={username}
-            onChange={e => setUsername(e.target.value)}
+            onChange={e => setUsername(e.target.value.toLowerCase())}
             autoComplete="username"
+            autoCapitalize="none"
+            autoCorrect="off"
             required
             className="w-full bg-gray-800 border border-gray-700 text-white placeholder-gray-500 rounded-xl px-4 py-3 focus:outline-none focus:border-orange-500 transition-colors"
           />
           <input
             type="password"
-            placeholder="Contraseña"
+            placeholder="contraseña"
             value={password}
             onChange={e => setPassword(e.target.value)}
             autoComplete="current-password"
