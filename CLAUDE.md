@@ -201,8 +201,8 @@ Id, Name, IsActive
 ```
 Toma de pedido → Status: Pending, PaymentStatus: PendienteCobro
      ↓ (se pueden agregar más artículos mientras PaymentStatus == PendienteCobro)
-Entrega → Status: Delivered        ← también permite agregar artículos
-     ↓
+Entrega → Status: Delivered
+     ↓ (si se agregan artículos desde Delivered → vuelve a Pending para que cocina lo vea)
 Cobro al cierre → PaymentStatus: Cobrado
 ```
 
@@ -318,7 +318,7 @@ DailySummaryDto {
 ## Decisiones técnicas relevantes
 
 - `TotalACobrar` en resumen solo suma pedidos con `PaymentStatus = PendienteCobro`.
-- `POST /orders/{id}/items` acumula cantidad si el artículo ya existe en el pedido. La validación usa `PaymentStatus != PendienteCobro` (no `Status != Pending`) — permite agregar artículos a pedidos ya Entregados mientras no se hayan cobrado.
+- `POST /orders/{id}/items` acumula cantidad si el artículo ya existe en el pedido. La validación usa `PaymentStatus != PendienteCobro` (no `Status != Pending`) — permite agregar artículos a pedidos ya Entregados mientras no se hayan cobrado. Si el pedido estaba `Delivered`, vuelve a `Pending` para que cocina lo vea con los artículos nuevos.
 - Las mesas no tienen botón eliminar en la UI — son fixtures permanentes.
 - El seeder usa `IgnoreQueryFilters()` para no fallar durante el arranque (antes del login).
 - Buscadores de clientes, pedidos y platillos filtran en memoria (sin llamadas extra al backend).
