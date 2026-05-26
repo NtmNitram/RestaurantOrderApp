@@ -399,14 +399,23 @@ export default function OrdersPage() {
                         Cobrado
                       </span>
                     ) : (
-                      <button
-                        onClick={() => paymentMutation.mutate({ id: order.id, estadoCobro: 1 })}
-                        disabled={paymentMutation.isPending}
-                        className="flex items-center gap-1.5 bg-orange-500 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-orange-600 disabled:opacity-50 transition-colors"
-                      >
-                        <Banknote className="w-3.5 h-3.5" />
-                        Cobrar
-                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setAddItemsOrder(order)}
+                          className="w-9 h-9 flex items-center justify-center rounded-lg border border-orange-200 text-orange-500 hover:bg-orange-50 transition-colors"
+                          title="Agregar más artículos"
+                        >
+                          <PlusCircle className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => paymentMutation.mutate({ id: order.id, estadoCobro: 1 })}
+                          disabled={paymentMutation.isPending}
+                          className="flex items-center gap-1.5 bg-orange-500 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-orange-600 disabled:opacity-50 transition-colors"
+                        >
+                          <Banknote className="w-3.5 h-3.5" />
+                          Cobrar
+                        </button>
+                      </div>
                     )
                   )}
                 </div>
