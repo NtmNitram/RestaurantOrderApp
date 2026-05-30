@@ -75,7 +75,7 @@ RestaurantOrderAPI/src/
 
 ---
 
-## Módulo 1 — Estado actual (al 2026-05-25)
+## Módulo 1 — Estado actual (al 2026-05-29)
 
 ### Funcionalidades implementadas
 
@@ -110,6 +110,8 @@ RestaurantOrderAPI/src/
 | Login dedicado para rol Cocina en /cocina | ✅ | ✅ |
 | Usuario cocina/cocina123 en seeder | — | ✅ |
 | Login inputs: autoCapitalize, lowercase, placeholders correctos | ✅ | — |
+| Restauración silenciosa de sesión al recargar (auto-refresh en AuthContext) | ✅ | — |
+| Hora del pedido visible en cada artículo de la pantalla de cocina | ✅ | — |
 
 ### Flujo operativo definido (2026-05-16)
 
@@ -345,3 +347,5 @@ DailySummaryDto {
 - **Seeder (2026-05-25):** el `foreach` de usuarios siempre sincroniza `PasswordHash` y `Role` en el `else` branch — garantiza que las credenciales en BD coincidan con el código en cada arranque. Útil para resetear passwords en producción sin tocar la BD manualmente.
 - **Login inputs (2026-05-25):** `LoginPage` y `CocinaLogin` usan `autoCapitalize="none"`, `autoCorrect="off"` y `onChange` que convierte el username a lowercase. Evita que móviles autocapitalicen y causen errores de autenticación.
 - **Deploy (2026-05-25):** Backend en Railway con Dockerfile, Frontend en Vercel con `vercel.json`. El seeder crea/sincroniza los 3 usuarios en cada arranque. SHA-256 de `"admin123"` = `240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9`.
+- **Auto-refresh en mount (2026-05-29):** `AuthContext` llama a `apiRefresh()` al montar si `localStorage.role` existe pero `tokenStore` no tiene token. Esto restaura la sesión silenciosamente tras un reload sin esperar a que el interceptor falle en 401. Si el refresh falla (cookie expirada), limpia `localStorage` y fuerza logout. El `refresh()` es un export dedicado en `auth.ts` que usa `api.post` (con interceptor JWT) — no llama al endpoint directamente.
+- **Hora en OrderCard de cocina (2026-05-29):** cada artículo del pedido muestra `formatTime(order.fechaPedido)` alineado a la derecha. Permite a la cocina ver cuándo llegó el pedido sin mirar la cabecera de la tarjeta.

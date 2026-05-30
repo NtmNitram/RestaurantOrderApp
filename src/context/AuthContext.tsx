@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react'
-import { login as apiLogin, logout as apiLogout, type LoginRequest } from '../api/auth'
+import { login as apiLogin, logout as apiLogout, refresh as apiRefresh, type LoginRequest } from '../api/auth'
 import { tokenStore } from '../api/tokenStore'
 
 interface AuthState {
@@ -25,6 +25,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     tokenStore.register((token) => setAuth(prev => ({ ...prev, token })))
+
+    if (localStorage.getItem('role') && !tokenStore.get()) {
+      apiRefresh()
+        .then(result => {
+          tokenStore.set(result.token)
+          localStorage.setItem('role', result.role)
+          localStorage.setItem('username', result.username)
+          setAuth({ token: result.token, role: result.role, username: result.username })
+        })
+        .catch(() => {
+          tokenStore.set(null)
+          localStorage.removeItem('role')
+          localStorage.removeItem('username')
+          setAuth({ token: null, role: null, username: null })
+        })
+    }
+
     return () => tokenStore.register(() => {})
   }, [])
 

@@ -31,7 +31,9 @@
       "Bash(xargs grep -l \"\")",
       "Bash(xargs cat)",
       "Bash(PGPASSWORD=postgres123 /c/Program Files/PostgreSQL/18/bin/psql.exe *)",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Bash(dir \"C:\\\\Users\\\\Martin\\\\Desktop\\\\repos\\\\RestaurantOrderAPI\")",
+      "Bash(dotnet run *)"
     ]
   }
 }

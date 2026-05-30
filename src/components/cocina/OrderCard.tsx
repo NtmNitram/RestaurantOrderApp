@@ -31,7 +31,8 @@ export default function OrderCard({ order }: { order: Order }) {
             <span className="text-orange-300 font-bold text-lg leading-none w-6 text-right flex-shrink-0">
               {item.cantidad}×
             </span>
-            <span className="text-white text-base leading-snug">{item.nombreArticulo}</span>
+            <span className="text-white text-base leading-snug flex-1">{item.nombreArticulo}</span>
+            <span className="text-gray-500 text-xs flex-shrink-0">{formatTime(order.fechaPedido)}</span>
           </li>
         ))}
       </ul>

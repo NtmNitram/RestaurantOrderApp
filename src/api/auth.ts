@@ -16,6 +16,11 @@ export async function login(data: LoginRequest): Promise<TokenResponse> {
   return res.data
 }
 
+export async function refresh(): Promise<TokenResponse> {
+  const res = await api.post<TokenResponse>('/Auth/refresh')
+  return res.data
+}
+
 export async function logout(): Promise<void> {
   await api.post('/Auth/logout')
 }
