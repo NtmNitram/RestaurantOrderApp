@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getOrders, changeOrderStatus, changePaymentStatus, addItemsToOrder } from '../api/orders'
+import { getOrders, changeOrderStatus, changePaymentStatus, addItemsToOrder, removeItemFromOrder } from '../api/orders'
 import { registerTableware } from '../api/tableware'
 import { getMenuItems } from '../api/menuItems'
 import type { Order } from '../types'
@@ -234,6 +234,14 @@ export default function OrdersPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['orders'] }),
   })
 
+  const removeItemMutation = useMutation({
+    mutationFn: ({ orderId, itemId }: { orderId: number; itemId: number }) => removeItemFromOrder(orderId, itemId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['orders'] })
+      queryClient.invalidateQueries({ queryKey: ['daily-summary'] })
+    },
+  })
+
   if (isLoading) return (
     <div className="flex items-center justify-center py-20 text-gray-400">
       Cargando pedidos...
@@ -345,12 +353,25 @@ export default function OrdersPage() {
                 </div>
 
                 <ul className="text-sm text-gray-600 mb-3 space-y-1 border-t border-gray-100 pt-3">
-                  {order.articulos.map(d => (
-                    <li key={d.id} className="flex justify-between">
-                      <span>{d.cantidad}x {d.nombreArticulo}</span>
-                      <span className="text-gray-500">${d.subtotal.toFixed(2)}</span>
-                    </li>
-                  ))}
+                  {order.articulos.map(d => {
+                    const canRemove = order.estadoCobro !== 'Cobrado' && order.estado !== 'Cancelado' && order.articulos.length > 1
+                    return (
+                      <li key={d.id} className="flex justify-between items-center gap-1">
+                        <span className="flex-1">{d.cantidad}x {d.nombreArticulo}</span>
+                        <span className="text-gray-500">${d.subtotal.toFixed(2)}</span>
+                        {canRemove && (
+                          <button
+                            onClick={() => removeItemMutation.mutate({ orderId: order.id, itemId: d.id })}
+                            disabled={removeItemMutation.isPending}
+                            className="text-red-300 hover:text-red-500 disabled:opacity-40 ml-1 flex-shrink-0"
+                            title="Eliminar artículo"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        )}
+                      </li>
+                    )
+                  })}
                 </ul>
 
                 {order.notas && (

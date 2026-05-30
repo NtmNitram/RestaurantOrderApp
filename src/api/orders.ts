@@ -26,6 +26,11 @@ export const addItemsToOrder = async (
   await apiClient.post(`/Orders/${id}/items`, { articulos })
 }
 
+export const removeItemFromOrder = async (orderId: number, itemId: number): Promise<Order> => {
+  const res = await apiClient.delete<Order>(`/Orders/${orderId}/items/${itemId}`)
+  return res.data
+}
+
 export const getDailySummary = async (params?: { startDate?: string; endDate?: string }): Promise<DailySummary> => {
   const res = await apiClient.get<DailySummary>('/Orders/summary/daily', { params })
   return res.data

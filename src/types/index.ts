@@ -27,6 +27,7 @@ export interface OrderDetail {
   cantidad: number
   precioUnitario: number
   subtotal: number
+  createdAt: string
 }
 
 export interface Order {
