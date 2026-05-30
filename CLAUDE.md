@@ -75,7 +75,7 @@ RestaurantOrderAPI/src/
 
 ---
 
-## Módulo 1 — Estado actual (al 2026-05-29)
+## Módulo 1 — Estado actual (al 2026-05-30)
 
 ### Funcionalidades implementadas
 
@@ -111,7 +111,10 @@ RestaurantOrderAPI/src/
 | Usuario cocina/cocina123 en seeder | — | ✅ |
 | Login inputs: autoCapitalize, lowercase, placeholders correctos | ✅ | — |
 | Restauración silenciosa de sesión al recargar (auto-refresh en AuthContext) | ✅ | — |
-| Hora del pedido visible en cada artículo de la pantalla de cocina | ✅ | — |
+| `isInitializing` gate en ProtectedRoute y CocinaPage (evita race condition) | ✅ | — |
+| Hora de creación por artículo en pantalla de cocina (CreatedAt) | ✅ | ✅ |
+| Eliminar artículo de pedido PendienteCobro (botón X en OrdersPage) | ✅ | ✅ |
+| Vajilla acumula QuantityDelivered si ya existe registro (re-entrega) | — | ✅ |
 
 ### Flujo operativo definido (2026-05-16)
 
@@ -169,7 +172,7 @@ Id, ClientId, RestaurantId, OrderDate (UTC),
 Status (Pending/Delivered/Cancelled),
 PaymentStatus (PendienteCobro/Cobrado),
 Notes?, Total
-→ OrderDetails: MenuItemId, Quantity, UnitPrice, Subtotal
+→ OrderDetails: MenuItemId, Quantity, UnitPrice, Subtotal, CreatedAt (UTC, DEFAULT now())
 ```
 
 ### OrderTableware
@@ -250,6 +253,7 @@ Cobro al cierre → PaymentStatus: Cobrado
 - `GET /` — pedidos del día — roles: Administrador, Empleado, Cocina
 - `POST /` — crear pedido `{ clienteId, notas?, articulos: [{articuloId, cantidad}] }`
 - `POST /{id}/items` — agregar artículos (válido mientras `PaymentStatus == PendienteCobro`, incluye Entregados)
+- `DELETE /{orderId}/items/{itemId}` — eliminar artículo (válido mientras `PaymentStatus == PendienteCobro`, mínimo 1 artículo) **(Administrador/Empleado)**
 - `PATCH /{id}/status` — cambiar estado entrega `{ estado: 0|1|2 }`
 - `PATCH /{id}/payment-status` — cambiar estado cobro `{ estadoCobro: 0|1 }`
 - `GET /summary/daily` — resumen diario **(solo Administrador)**
@@ -348,4 +352,7 @@ DailySummaryDto {
 - **Login inputs (2026-05-25):** `LoginPage` y `CocinaLogin` usan `autoCapitalize="none"`, `autoCorrect="off"` y `onChange` que convierte el username a lowercase. Evita que móviles autocapitalicen y causen errores de autenticación.
 - **Deploy (2026-05-25):** Backend en Railway con Dockerfile, Frontend en Vercel con `vercel.json`. El seeder crea/sincroniza los 3 usuarios en cada arranque. SHA-256 de `"admin123"` = `240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9`.
 - **Auto-refresh en mount (2026-05-29):** `AuthContext` llama a `apiRefresh()` al montar si `localStorage.role` existe pero `tokenStore` no tiene token. Esto restaura la sesión silenciosamente tras un reload sin esperar a que el interceptor falle en 401. Si el refresh falla (cookie expirada), limpia `localStorage` y fuerza logout. El `refresh()` es un export dedicado en `auth.ts` que usa `api.post` (con interceptor JWT) — no llama al endpoint directamente.
-- **Hora en OrderCard de cocina (2026-05-29):** cada artículo del pedido muestra `formatTime(order.fechaPedido)` alineado a la derecha. Permite a la cocina ver cuándo llegó el pedido sin mirar la cabecera de la tarjeta.
+- **isInitializing en AuthContext (2026-05-29):** resuelve race condition al recargar: sin este gate, `ProtectedRoute` y `CocinaPage` renderizan hijos antes de que el refresh silencioso complete, los hijos hacen API calls sin token, el interceptor dispara un segundo refresh concurrente que consume el token rotado y fuerza logout. `isInitializing` arranca en `true` si hay `role` en localStorage y pasa a `false` en el `.finally()` del refresh. `ProtectedRoute` y `CocinaPage` renderizan `null` mientras sea `true`.
+- **CreatedAt en OrderDetail (2026-05-30):** campo `TIMESTAMPTZ NOT NULL DEFAULT now()` en `OrderDetail`, migración `AddOrderDetailCreatedAt`. Se expone en `OrderDetailResponseDto` y en el tipo `OrderDetail` del frontend. `OrderCard` en cocina muestra `formatTime(item.createdAt)` por artículo (no `order.fechaPedido`) — cada artículo muestra la hora en que se agregó al pedido, no la hora del pedido.
+- **DELETE /orders/{orderId}/items/{itemId} (2026-05-30):** elimina un `OrderDetail` específico y recalcula `Total`. Validaciones: `PaymentStatus == PendienteCobro`, artículo pertenece al pedido, queda al menos 1 artículo. Roles: Administrador y Empleado. En `OrdersPage`, botón X por artículo visible cuando `estadoCobro !== 'Cobrado' && estado !== 'Cancelado' && articulos.length > 1`.
+- **Vajilla acumula al re-entregar (2026-05-29):** `TablewareService.RegisterAsync` detecta registro existente y hace `QuantityDelivered += dto.QuantityDelivered` + `UpdateAsync` en lugar de lanzar excepción. Cubre el flujo: Externo entregado con vajilla → artículos nuevos regresan a Pending → segunda entrega abre modal de vajilla de nuevo.
