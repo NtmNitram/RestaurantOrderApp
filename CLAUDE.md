@@ -75,7 +75,7 @@ RestaurantOrderAPI/src/
 
 ---
 
-## Módulo 1 — Estado actual (al 2026-05-30)
+## Módulo 1 — Estado actual (al 2026-05-31)
 
 ### Funcionalidades implementadas
 
@@ -356,3 +356,4 @@ DailySummaryDto {
 - **CreatedAt en OrderDetail (2026-05-30):** campo `TIMESTAMPTZ NOT NULL DEFAULT now()` en `OrderDetail`, migración `AddOrderDetailCreatedAt`. Se expone en `OrderDetailResponseDto` y en el tipo `OrderDetail` del frontend. `OrderCard` en cocina muestra `formatTime(item.createdAt)` por artículo (no `order.fechaPedido`) — cada artículo muestra la hora en que se agregó al pedido, no la hora del pedido.
 - **DELETE /orders/{orderId}/items/{itemId} (2026-05-30):** elimina un `OrderDetail` específico y recalcula `Total`. Validaciones: `PaymentStatus == PendienteCobro`, artículo pertenece al pedido, queda al menos 1 artículo. Roles: Administrador y Empleado. En `OrdersPage`, botón X por artículo visible cuando `estadoCobro !== 'Cobrado' && estado !== 'Cancelado' && articulos.length > 1`.
 - **Vajilla acumula al re-entregar (2026-05-29):** `TablewareService.RegisterAsync` detecta registro existente y hace `QuantityDelivered += dto.QuantityDelivered` + `UpdateAsync` en lugar de lanzar excepción. Cubre el flujo: Externo entregado con vajilla → artículos nuevos regresan a Pending → segunda entrega abre modal de vajilla de nuevo.
+- **Bug corregido 2026-05-31 — totalCobrado en resumen diario:** `GetDailySummaryAsync` en `OrderRepository` tenía dos problemas: (1) **Timezone**: rango UTC iniciaba a medianoche UTC = 6pm hora local Mexico City; pedidos del turno tarde/noche quedaban fuera del rango. Fix: desplazar 6h → `start = startDate.Date.AddHours(6)` (UTC-6 fijo desde que Mexico City eliminó DST en 2023). (2) **Carry-over Cobrado**: condición 2 solo incluía `PendienteCobro`; al marcar un pedido de un día anterior como `Cobrado` (común en domicilios que pagan después), dejaba de ser `PendienteCobro` y ya no estaba en rango de fechas → desaparecía del resumen sin sumar en `totalCobrado`. Fix: condición 2 ahora incluye **todos los pedidos no cancelados de los últimos 7 días anteriores al rango** sin filtrar por `PaymentStatus`. Ventana de 7 días cubre domicilios que pagan con días de retraso.
