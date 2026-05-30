@@ -12,6 +12,7 @@ interface AuthContextValue extends AuthState {
   login: (data: LoginRequest) => Promise<void>
   logout: () => Promise<void>
   isAuthenticated: boolean
+  isInitializing: boolean
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -22,6 +23,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     role: localStorage.getItem('role'),
     username: localStorage.getItem('username'),
   })
+  const [isInitializing, setIsInitializing] = useState(!!localStorage.getItem('role'))
 
   useEffect(() => {
     tokenStore.register((token) => setAuth(prev => ({ ...prev, token })))
@@ -40,6 +42,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           localStorage.removeItem('username')
           setAuth({ token: null, role: null, username: null })
         })
+        .finally(() => setIsInitializing(false))
     }
 
     return () => tokenStore.register(() => {})
@@ -62,7 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ ...auth, login, logout, isAuthenticated: !!auth.role }}>
+    <AuthContext.Provider value={{ ...auth, login, logout, isAuthenticated: !!auth.role, isInitializing }}>
       {children}
     </AuthContext.Provider>
   )

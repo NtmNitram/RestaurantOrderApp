@@ -182,6 +182,7 @@ function CocinaScreen() {
 
 // ── Entry point ────────────────────────────────────────────────────────────
 export default function CocinaPage() {
-  const { role } = useAuth()
+  const { role, isInitializing } = useAuth()
+  if (isInitializing) return null
   return role === 'Cocina' ? <CocinaScreen /> : <CocinaLogin />
 }
