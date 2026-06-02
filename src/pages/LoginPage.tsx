@@ -45,7 +45,7 @@ export default function LoginPage() {
             <input
               type="text"
               value={username}
-              onChange={e => setUsername(e.target.value.toLowerCase())}
+              onChange={e => setUsername(e.target.value.toLowerCase().trim())}
               className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
               placeholder="usuario"
               autoCapitalize="none"

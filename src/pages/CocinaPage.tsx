@@ -42,7 +42,7 @@ function CocinaLogin() {
             type="text"
             placeholder="usuario"
             value={username}
-            onChange={e => setUsername(e.target.value.toLowerCase())}
+            onChange={e => setUsername(e.target.value.toLowerCase().trim())}
             autoComplete="username"
             autoCapitalize="none"
             autoCorrect="off"
