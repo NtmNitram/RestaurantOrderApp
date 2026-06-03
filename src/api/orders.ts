@@ -1,8 +1,8 @@
 import apiClient from './client'
 import type { Order, CreateOrderDto, DailySummary } from '../types'
 
-export const getOrders = async (): Promise<Order[]> => {
-  const res = await apiClient.get<Order[]>('/Orders')
+export const getOrders = async (date?: string): Promise<Order[]> => {
+  const res = await apiClient.get<Order[]>('/Orders', date ? { params: { date } } : undefined)
   return res.data
 }
 

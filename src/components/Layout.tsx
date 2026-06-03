@@ -11,7 +11,12 @@ export default function Layout() {
   const isAdmin = role === 'Administrador'
 
   const { data: orders } = useQuery({ queryKey: ['orders'], queryFn: getOrders })
-  const pendingCount = orders?.filter(o => o.estadoCobro !== 'Cobrado' && o.estado !== 'Cancelado').length ?? 0
+  const todayMX = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Mexico_City' }).format(new Date())
+  const pendingCount = orders?.filter(o =>
+    o.estadoCobro !== 'Cobrado' &&
+    o.estado !== 'Cancelado' &&
+    new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Mexico_City' }).format(new Date(o.fechaPedido)) === todayMX
+  ).length ?? 0
 
   const { data: tableware } = useQuery({ queryKey: ['tableware-pending'], queryFn: getPendingTableware })
   const vajillaCount = tableware?.length ?? 0
