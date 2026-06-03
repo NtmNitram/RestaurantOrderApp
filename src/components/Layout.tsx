@@ -10,7 +10,7 @@ export default function Layout() {
   const navigate = useNavigate()
   const isAdmin = role === 'Administrador'
 
-  const { data: orders } = useQuery({ queryKey: ['orders'], queryFn: getOrders })
+  const { data: orders } = useQuery({ queryKey: ['orders'], queryFn: () => getOrders() })
   const todayMX = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Mexico_City' }).format(new Date())
   const pendingCount = orders?.filter(o =>
     o.estadoCobro !== 'Cobrado' &&

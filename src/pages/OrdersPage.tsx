@@ -252,7 +252,7 @@ export default function OrdersPage() {
 
   const { data: orders, isLoading, isError } = useQuery({
     queryKey: ['orders'],
-    queryFn: getOrders,
+    queryFn: () => getOrders(),
   })
 
   const statusMutation = useMutation({
