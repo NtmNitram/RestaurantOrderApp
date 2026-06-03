@@ -4,7 +4,12 @@ import { getOrders, changeOrderStatus, changePaymentStatus, addItemsToOrder, rem
 import { registerTableware } from '../api/tableware'
 import { getMenuItems } from '../api/menuItems'
 import type { Order } from '../types'
-import { CheckCircle, XCircle, Clock, MapPin, Navigation, Banknote, PlusCircle, Plus, Minus, X, Search, Archive } from 'lucide-react'
+import { CheckCircle, XCircle, Clock, MapPin, Navigation, Banknote, PlusCircle, Plus, Minus, X, Search, Archive, CalendarDays } from 'lucide-react'
+
+// ── Helpers de fecha ──────────────────────────────────────────────────────────
+const FMT_MX = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Mexico_City' })
+const todayMX = FMT_MX.format(new Date())
+function toMexicoDateStr(isoUtc: string) { return FMT_MX.format(new Date(isoUtc)) }
 
 const STATUS_STYLE: Record<string, { bg: string; text: string; icon: React.ReactNode }> = {
   Pendiente: {
@@ -27,12 +32,20 @@ const STATUS_STYLE: Record<string, { bg: string; text: string; icon: React.React
 function AddItemsModal({ order, onClose }: { order: Order; onClose: () => void }) {
   const queryClient = useQueryClient()
   const [items, setItems] = useState<Record<number, number>>({})
+  const [notas, setNotas] = useState<Record<number, string>>({})
   const [busqueda, setBusqueda] = useState('')
 
   const { data: menuItems, isLoading } = useQuery({ queryKey: ['menuItems'], queryFn: getMenuItems })
 
   const mutation = useMutation({
-    mutationFn: () => addItemsToOrder(order.id, Object.entries(items).map(([id, qty]) => ({ articuloId: Number(id), cantidad: qty }))),
+    mutationFn: () => addItemsToOrder(
+      order.id,
+      Object.entries(items).map(([id, qty]) => ({
+        articuloId: Number(id),
+        cantidad: qty,
+        notas: notas[Number(id)] || undefined,
+      }))
+    ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['orders'] })
       queryClient.invalidateQueries({ queryKey: ['daily-summary'] })
@@ -43,7 +56,11 @@ function AddItemsModal({ order, onClose }: { order: Order; onClose: () => void }
   const changeQty = (articuloId: number, delta: number) => {
     setItems(prev => {
       const next = (prev[articuloId] ?? 0) + delta
-      if (next <= 0) { const { [articuloId]: _, ...rest } = prev; return rest }
+      if (next <= 0) {
+        const { [articuloId]: _, ...rest } = prev
+        setNotas(n => { const { [articuloId]: __, ...rn } = n; return rn })
+        return rest
+      }
       return { ...prev, [articuloId]: next }
     })
   }
@@ -87,22 +104,34 @@ function AddItemsModal({ order, onClose }: { order: Order; onClose: () => void }
             <p className="text-center text-gray-400 py-8">Cargando menú...</p>
           ) : (
             menuItems?.filter(m => m.disponible && m.nombre.toLowerCase().includes(busqueda.toLowerCase())).map(item => (
-              <div key={item.id} className="flex items-center justify-between bg-gray-50 rounded-xl px-3 py-2.5">
-                <div>
-                  <p className="text-sm font-medium text-gray-800">{item.nombre}</p>
-                  <p className="text-xs text-orange-600 font-medium">${item.precio.toFixed(2)}</p>
+              <div key={item.id} className="bg-gray-50 rounded-xl px-3 py-2.5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-800">{item.nombre}</p>
+                    <p className="text-xs text-orange-600 font-medium">${item.precio.toFixed(2)}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => changeQty(item.id, -1)} disabled={!items[item.id]}
+                      className="w-7 h-7 rounded-full border border-gray-300 text-gray-600 hover:bg-gray-100 disabled:opacity-30 flex items-center justify-center">
+                      <Minus className="w-3 h-3" />
+                    </button>
+                    <span className="w-5 text-center text-sm font-bold text-gray-800">{items[item.id] ?? 0}</span>
+                    <button onClick={() => changeQty(item.id, 1)}
+                      className="w-7 h-7 rounded-full bg-orange-500 text-white hover:bg-orange-600 flex items-center justify-center">
+                      <Plus className="w-3 h-3" />
+                    </button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <button onClick={() => changeQty(item.id, -1)} disabled={!items[item.id]}
-                    className="w-7 h-7 rounded-full border border-gray-300 text-gray-600 hover:bg-gray-100 disabled:opacity-30 flex items-center justify-center">
-                    <Minus className="w-3 h-3" />
-                  </button>
-                  <span className="w-5 text-center text-sm font-bold text-gray-800">{items[item.id] ?? 0}</span>
-                  <button onClick={() => changeQty(item.id, 1)}
-                    className="w-7 h-7 rounded-full bg-orange-500 text-white hover:bg-orange-600 flex items-center justify-center">
-                    <Plus className="w-3 h-3" />
-                  </button>
-                </div>
+                {(items[item.id] ?? 0) > 0 && (
+                  <input
+                    type="text"
+                    value={notas[item.id] ?? ''}
+                    onChange={e => setNotas(prev => ({ ...prev, [item.id]: e.target.value }))}
+                    placeholder="Nota: sin salsa, extra queso..."
+                    maxLength={300}
+                    className="mt-2 w-full text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-orange-400 bg-white text-gray-700 placeholder:text-gray-400"
+                  />
+                )}
               </div>
             ))
           )}
@@ -215,6 +244,8 @@ function TablewareModal({ order, onClose }: { order: Order; onClose: () => void 
 export default function OrdersPage() {
   const [tab, setTab] = useState<'pendientes' | 'todos'>('pendientes')
   const [busqueda, setBusqueda] = useState('')
+  const [fromDate, setFromDate] = useState(todayMX)
+  const [toDate, setToDate] = useState(todayMX)
   const [addItemsOrder, setAddItemsOrder] = useState<Order | null>(null)
   const [tablewareOrder, setTablewareOrder] = useState<Order | null>(null)
   const queryClient = useQueryClient()
@@ -254,14 +285,23 @@ export default function OrdersPage() {
     </div>
   )
 
+  const isToday = fromDate === todayMX && toDate === todayMX
+  const filtrarFecha = (lista: Order[]) =>
+    lista.filter(o => {
+      const d = toMexicoDateStr(o.fechaPedido)
+      return d >= fromDate && d <= toDate
+    })
+
   const pendientes = orders?.filter(o => o.estadoCobro !== 'Cobrado' && o.estado !== 'Cancelado') ?? []
   const q = busqueda.trim().toLowerCase()
-  const filtrar = (lista: Order[]) => q
+  const filtrarTexto = (lista: Order[]) => q
     ? lista.filter(o => o.nombreCliente.toLowerCase().includes(q) ||
         o.localCliente?.toLowerCase().includes(q) ||
         o.referenciaCliente?.toLowerCase().includes(q))
     : lista
-  const visibles = filtrar(tab === 'pendientes' ? pendientes : (orders ?? []))
+
+  const base = tab === 'pendientes' ? pendientes : (orders ?? [])
+  const visibles = filtrarTexto(filtrarFecha(base))
 
   return (
     <div>
@@ -270,6 +310,39 @@ export default function OrdersPage() {
 
       <div className="mb-4">
         <h1 className="text-2xl font-bold text-gray-800">Pedidos del día</h1>
+
+        <div className="mt-3 flex flex-wrap items-end gap-2">
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-gray-500 font-medium">Desde</label>
+            <input
+              type="date"
+              value={fromDate}
+              max={todayMX}
+              onChange={e => { setFromDate(e.target.value); if (e.target.value > toDate) setToDate(e.target.value) }}
+              className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-orange-400"
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-gray-500 font-medium">Hasta</label>
+            <input
+              type="date"
+              value={toDate}
+              min={fromDate}
+              max={todayMX}
+              onChange={e => { setToDate(e.target.value); if (e.target.value < fromDate) setFromDate(e.target.value) }}
+              className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-orange-400"
+            />
+          </div>
+          {!isToday && (
+            <button
+              onClick={() => { setFromDate(todayMX); setToDate(todayMX) }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-orange-100 text-orange-700 text-sm font-medium hover:bg-orange-200 transition-colors"
+            >
+              <CalendarDays className="w-4 h-4" />
+              Hoy
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="relative mb-4">
@@ -316,10 +389,10 @@ export default function OrdersPage() {
         <div className="text-center py-16 text-gray-400">
           <CheckCircle className="w-12 h-12 mx-auto mb-3 text-green-300" />
           <p className="text-lg font-medium">
-            {tab === 'pendientes' ? 'Todo al día' : 'Sin pedidos aún'}
+            {tab === 'pendientes' ? 'Todo al día' : 'Sin pedidos'}
           </p>
           <p className="text-sm mt-1">
-            {tab === 'pendientes' ? 'No hay pedidos pendientes' : 'No hay pedidos registrados hoy'}
+            {tab === 'pendientes' ? 'No hay pedidos pendientes' : 'No hay pedidos en este rango de fechas'}
           </p>
         </div>
       ) : (
@@ -343,6 +416,7 @@ export default function OrdersPage() {
                       {' · '}{new Date(order.fechaPedido).toLocaleTimeString('es-MX', {
                         hour: '2-digit',
                         minute: '2-digit',
+                        timeZone: 'America/Mexico_City',
                       })}
                     </p>
                   </div>
@@ -352,22 +426,27 @@ export default function OrdersPage() {
                   </span>
                 </div>
 
-                <ul className="text-sm text-gray-600 mb-3 space-y-1 border-t border-gray-100 pt-3">
+                <ul className="text-sm text-gray-600 mb-3 space-y-1.5 border-t border-gray-100 pt-3">
                   {order.articulos.map(d => {
                     const canRemove = order.estadoCobro !== 'Cobrado' && order.estado !== 'Cancelado' && order.articulos.length > 1
                     return (
-                      <li key={d.id} className="flex justify-between items-center gap-1">
-                        <span className="flex-1">{d.cantidad}x {d.nombreArticulo}</span>
-                        <span className="text-gray-500">${d.subtotal.toFixed(2)}</span>
-                        {canRemove && (
-                          <button
-                            onClick={() => removeItemMutation.mutate({ orderId: order.id, itemId: d.id })}
-                            disabled={removeItemMutation.isPending}
-                            className="text-red-300 hover:text-red-500 disabled:opacity-40 ml-1 flex-shrink-0"
-                            title="Eliminar artículo"
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
+                      <li key={d.id}>
+                        <div className="flex justify-between items-center gap-1">
+                          <span className="flex-1">{d.cantidad}x {d.nombreArticulo}</span>
+                          <span className="text-gray-500">${d.subtotal.toFixed(2)}</span>
+                          {canRemove && (
+                            <button
+                              onClick={() => removeItemMutation.mutate({ orderId: order.id, itemId: d.id })}
+                              disabled={removeItemMutation.isPending}
+                              className="text-red-300 hover:text-red-500 disabled:opacity-40 ml-1 flex-shrink-0"
+                              title="Eliminar artículo"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          )}
+                        </div>
+                        {d.notas && (
+                          <p className="text-xs text-gray-400 italic mt-0.5 ml-1">{d.notas}</p>
                         )}
                       </li>
                     )

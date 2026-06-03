@@ -28,6 +28,7 @@ export interface OrderDetail {
   precioUnitario: number
   subtotal: number
   createdAt: string
+  notas?: string | null
 }
 
 export interface Order {

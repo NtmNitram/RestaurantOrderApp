@@ -21,7 +21,7 @@ export const changePaymentStatus = async (id: number, estadoCobro: number): Prom
 
 export const addItemsToOrder = async (
   id: number,
-  articulos: { articuloId: number; cantidad: number }[]
+  articulos: { articuloId: number; cantidad: number; notas?: string }[]
 ): Promise<void> => {
   await apiClient.post(`/Orders/${id}/items`, { articulos })
 }

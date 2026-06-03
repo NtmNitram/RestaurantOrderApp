@@ -25,14 +25,19 @@ export default function OrderCard({ order }: { order: Order }) {
         </div>
       </div>
 
-      <ul className="space-y-1.5 border-t border-gray-700 pt-3">
+      <ul className="space-y-2 border-t border-gray-700 pt-3">
         {order.articulos.map(item => (
-          <li key={item.id} className="flex items-baseline gap-2">
-            <span className="text-orange-300 font-bold text-lg leading-none w-6 text-right flex-shrink-0">
-              {item.cantidad}×
-            </span>
-            <span className="text-white text-base leading-snug flex-1">{item.nombreArticulo}</span>
-            <span className="text-gray-500 text-xs flex-shrink-0">{formatTime(item.createdAt)}</span>
+          <li key={item.id}>
+            <div className="flex items-baseline gap-2">
+              <span className="text-orange-300 font-bold text-lg leading-none w-6 text-right flex-shrink-0">
+                {item.cantidad}×
+              </span>
+              <span className="text-white text-base leading-snug flex-1">{item.nombreArticulo}</span>
+              <span className="text-gray-500 text-xs flex-shrink-0">{formatTime(item.createdAt)}</span>
+            </div>
+            {item.notas && (
+              <p className="text-sm text-yellow-200 italic ml-8 mt-0.5">{item.notas}</p>
+            )}
           </li>
         ))}
       </ul>
