@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getClients, createClient, deleteClient } from '../api/clients'
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
 import { Plus, Navigation, X, UserPlus, Trash2, Phone, Home, UtensilsCrossed, Search } from 'lucide-react'
 
 function NewClientModal({ onClose }: { onClose: () => void }) {
@@ -190,6 +191,8 @@ function ClientSubtitle({ client }: { client: { tipo: string; referencia: string
 export default function ClientsPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { role } = useAuth()
+  const isAdmin = role === 'Administrador'
   const [tab, setTab] = useState<'mesas' | 'clientes'>('mesas')
   const [busqueda, setBusqueda] = useState('')
   const [showModal, setShowModal] = useState(false)
@@ -236,7 +239,8 @@ export default function ClientsPage() {
         c.direccionEntrega?.toLowerCase().includes(q)
       )
     : clientesNormales
-  const visibles = tab === 'mesas' ? mesas : clientesFiltrados
+  // Empleado solo ve mesas — aunque tab fuese 'clientes' por algún motivo, siempre recibe mesas
+  const visibles = (!isAdmin || tab === 'mesas') ? mesas : clientesFiltrados
 
   return (
     <div>
@@ -244,7 +248,7 @@ export default function ClientsPage() {
 
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold text-gray-800">Clientes</h1>
-        {tab === 'clientes' && (
+        {isAdmin && tab === 'clientes' && (
           <button
             onClick={() => setShowModal(true)}
             className="flex items-center gap-1.5 bg-orange-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-orange-600 transition-colors"
@@ -255,7 +259,7 @@ export default function ClientsPage() {
         )}
       </div>
 
-      {tab === 'clientes' && (
+      {isAdmin && tab === 'clientes' && (
         <div className="relative mb-4">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input
@@ -276,24 +280,26 @@ export default function ClientsPage() {
         </div>
       )}
 
-      <div className="flex gap-1 bg-gray-200 p-1 rounded-lg mb-5">
-        <button
-          onClick={() => { setTab('mesas'); setBusqueda('') }}
-          className={`flex-1 py-2 rounded-md text-sm font-medium transition-colors ${
-            tab === 'mesas' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          Mesas ({mesas.length})
-        </button>
-        <button
-          onClick={() => setTab('clientes')}
-          className={`flex-1 py-2 rounded-md text-sm font-medium transition-colors ${
-            tab === 'clientes' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          Clientes ({clientesNormales.length})
-        </button>
-      </div>
+      {isAdmin && (
+        <div className="flex gap-1 bg-gray-200 p-1 rounded-lg mb-5">
+          <button
+            onClick={() => { setTab('mesas'); setBusqueda('') }}
+            className={`flex-1 py-2 rounded-md text-sm font-medium transition-colors ${
+              tab === 'mesas' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Mesas ({mesas.length})
+          </button>
+          <button
+            onClick={() => setTab('clientes')}
+            className={`flex-1 py-2 rounded-md text-sm font-medium transition-colors ${
+              tab === 'clientes' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Clientes ({clientesNormales.length})
+          </button>
+        </div>
+      )}
 
       {visibles.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
