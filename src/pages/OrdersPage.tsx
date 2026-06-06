@@ -158,29 +158,13 @@ function TablewareModal({ order, onClose }: { order: Order; onClose: () => void 
   const queryClient = useQueryClient()
   const [platos, setPlatos] = useState(1)
 
-  const entregarMutation = useMutation({
-    mutationFn: () => changeOrderStatus(order.id, 1),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['orders'] }),
-  })
-
-  const entregarConVajilla = useMutation({
-    mutationFn: async () => {
-      await changeOrderStatus(order.id, 1)
-      await registerTableware({ orderId: order.id, itemType: 'Plato', quantityDelivered: platos })
-    },
+  const mutation = useMutation({
+    mutationFn: () => registerTableware({ orderId: order.id, itemType: 'Plato', quantityDelivered: platos }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['orders'] })
       queryClient.invalidateQueries({ queryKey: ['tableware-pending'] })
       onClose()
     },
   })
-
-  const handleSinVajilla = async () => {
-    await entregarMutation.mutateAsync()
-    onClose()
-  }
-
-  const isPending = entregarMutation.isPending || entregarConVajilla.isPending
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
@@ -188,7 +172,7 @@ function TablewareModal({ order, onClose }: { order: Order; onClose: () => void 
       <div className="relative bg-white w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl shadow-xl p-5">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h2 className="text-base font-bold text-gray-800">Registrar entrega</h2>
+            <h2 className="text-base font-bold text-gray-800">Registrar vajilla</h2>
             <p className="text-xs text-gray-500 mt-0.5">{order.nombreCliente}</p>
           </div>
           <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-500">
@@ -196,7 +180,7 @@ function TablewareModal({ order, onClose }: { order: Order; onClose: () => void 
           </button>
         </div>
 
-        <p className="text-sm text-gray-600 mb-4">¿Cuántos platos entregas con este pedido?</p>
+        <p className="text-sm text-gray-600 mb-4">¿Cuántos platos se entregaron con este pedido?</p>
 
         <div className="flex items-center justify-center gap-4 mb-6">
           <button
@@ -215,25 +199,25 @@ function TablewareModal({ order, onClose }: { order: Order; onClose: () => void 
           </button>
         </div>
 
-        {(entregarMutation.isError || entregarConVajilla.isError) && (
+        {mutation.isError && (
           <p className="text-xs text-red-600 mb-3 text-center">Error. Intenta de nuevo.</p>
         )}
 
         <div className="flex flex-col gap-2">
           <button
-            onClick={() => entregarConVajilla.mutate()}
-            disabled={isPending}
+            onClick={() => mutation.mutate()}
+            disabled={mutation.isPending}
             className="w-full flex items-center justify-center gap-2 bg-green-500 text-white py-3 rounded-xl font-medium hover:bg-green-600 disabled:opacity-50 transition-colors"
           >
             <Archive className="w-4 h-4" />
-            {entregarConVajilla.isPending ? 'Guardando...' : `Entregar + registrar ${platos} plato${platos !== 1 ? 's' : ''}`}
+            {mutation.isPending ? 'Guardando...' : `Registrar ${platos} plato${platos !== 1 ? 's' : ''}`}
           </button>
           <button
-            onClick={handleSinVajilla}
-            disabled={isPending}
+            onClick={onClose}
+            disabled={mutation.isPending}
             className="w-full py-2.5 rounded-xl text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
           >
-            {entregarMutation.isPending ? 'Guardando...' : 'Entregar sin registrar vajilla'}
+            Cancelar
           </button>
         </div>
       </div>
@@ -471,18 +455,6 @@ export default function OrdersPage() {
                         <PlusCircle className="w-4 h-4" />
                       </button>
                       <button
-                        onClick={() =>
-                          order.tipoCliente === 'Externo'
-                            ? setTablewareOrder(order)
-                            : statusMutation.mutate({ id: order.id, estado: 1 })
-                        }
-                        disabled={statusMutation.isPending}
-                        className="flex items-center gap-1.5 bg-green-500 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-green-600 disabled:opacity-50 transition-colors"
-                      >
-                        <CheckCircle className="w-3.5 h-3.5" />
-                        Entregar
-                      </button>
-                      <button
                         onClick={() => statusMutation.mutate({ id: order.id, estado: 2 })}
                         disabled={statusMutation.isPending}
                         className="flex items-center gap-1.5 bg-red-50 text-red-600 border border-red-200 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-red-100 disabled:opacity-50 transition-colors"
@@ -499,7 +471,17 @@ export default function OrdersPage() {
                         Cobrado
                       </span>
                     ) : (
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 flex-wrap justify-end">
+                        {order.tipoCliente === 'Externo' && (
+                          <button
+                            onClick={() => setTablewareOrder(order)}
+                            className="flex items-center gap-1.5 bg-gray-100 text-gray-700 border border-gray-200 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors"
+                            title="Registrar vajilla"
+                          >
+                            <Archive className="w-3.5 h-3.5" />
+                            Vajilla
+                          </button>
+                        )}
                         <button
                           onClick={() => setAddItemsOrder(order)}
                           className="w-9 h-9 flex items-center justify-center rounded-lg border border-orange-200 text-orange-500 hover:bg-orange-50 transition-colors"
