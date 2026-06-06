@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useAuth } from '../context/AuthContext'
 import { getOrders, changeOrderStatus, changePaymentStatus, addItemsToOrder, removeItemFromOrder } from '../api/orders'
 import { registerTableware } from '../api/tableware'
 import { getMenuItems } from '../api/menuItems'
@@ -226,6 +227,7 @@ function TablewareModal({ order, onClose }: { order: Order; onClose: () => void 
 }
 
 export default function OrdersPage() {
+  const { role } = useAuth()
   const [tab, setTab] = useState<'pendientes' | 'todos'>('pendientes')
   const [busqueda, setBusqueda] = useState('')
   const [fromDate, setFromDate] = useState(todayMX)
@@ -237,6 +239,7 @@ export default function OrdersPage() {
   const { data: orders, isLoading, isError } = useQuery({
     queryKey: ['orders'],
     queryFn: () => getOrders(),
+    refetchInterval: role === 'Empleado' ? 10_000 : false,
   })
 
   const statusMutation = useMutation({
