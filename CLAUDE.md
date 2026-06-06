@@ -298,6 +298,7 @@ DailySummaryDto {
 | Frontend | Vercel | ✅ Desplegado — `vercel.json` con rewrites para React Router |
 | Backend | Railway | ✅ Desplegado — Dockerfile en raíz, variables de entorno configuradas |
 | Base de datos | Railway PostgreSQL | ✅ Provisionada — `MigrateAsync` + seeder corren al arrancar |
+| Backups | Backblaze B2 + GitHub Actions | ✅ Backup diario 9 AM UTC (3 AM CDMX) → bucket `restaurant-backups` |
 
 ### Variables de entorno en Railway (backend)
 | Variable | Descripción |
@@ -312,6 +313,17 @@ DailySummaryDto {
 1. Docker build con `Dockerfile` en raíz
 2. `await db.Database.MigrateAsync()` — aplica migraciones pendientes
 3. `await DbSeeder.SeedAsync(db)` — crea restaurante, usuarios y menú si no existen
+
+### Backup automático (GitHub Actions — `.github/workflows/backup.yml` en RestaurantOrderAPI)
+- Schedule: `cron '0 9 * * *'` (9 AM UTC = 3 AM CDMX, UTC-6 fijo)
+- `pg_dump $PGURL --no-password | gzip` con `PGSSLMODE=require` (Railway requiere SSL)
+- Sube a Backblaze B2 vía AWS CLI S3-compatible: `--endpoint-url https://s3.us-east-005.backblazeb2.com`, región `us-east-005`
+- Credenciales: `AWS_ACCESS_KEY_ID=$B2_KEY_ID`, `AWS_SECRET_ACCESS_KEY=$B2_APPLICATION_KEY`
+- Retención: elimina archivos con >30 días (extrae fecha del nombre `backup-YYYY-MM-DD...`)
+- Fallo → crea GitHub Issue (email automático al owner); rotación con `continue-on-error: true`
+- Secrets en GitHub: `PGURL` (Railway `DATABASE_URL` público), `B2_KEY_ID`, `B2_APPLICATION_KEY`, `B2_BUCKET_NAME`, `B2_ENDPOINT`
+- `PGURL` ≠ `ConnectionStrings__DefaultConnection` (ese es formato .NET); usar `DATABASE_URL` del servicio PostgreSQL en Railway
+- Para probar: Actions → Daily Database Backup → Run workflow (workflow_dispatch)
 
 ### Seguridad del repo (auditado 2026-05-23)
 - `appsettings.Development.json` — gitignoreado (`appsettings.*.json`)
