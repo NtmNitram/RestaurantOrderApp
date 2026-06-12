@@ -29,6 +29,7 @@ export interface OrderDetail {
   subtotal: number
   createdAt: string
   notas?: string | null
+  isToGo?: boolean
 }
 
 export interface Order {
@@ -114,4 +115,87 @@ export interface CreateClientDto {
   telefono?: string
   direccionEntrega?: string
   referenciaDomicilio?: string
+}
+
+// ── Paquetes con opciones ─────────────────────────────────────────────────────
+
+export interface PackageOptionDto {
+  id: string            // Guid
+  name: string
+  extraPrice: number
+  isDailyRotating: boolean
+  isAvailableToday: boolean
+}
+
+export interface PackageGroupDto {
+  id: string            // Guid
+  name: string
+  minSelections: number
+  maxSelections: number
+  allowExtra: boolean
+  sortOrder: number
+  options: PackageOptionDto[]
+}
+
+export interface PackageDto {
+  id: number            // int — mismo que MenuItem.Id
+  name: string
+  description?: string
+  price: number
+  toGoSurcharge: number
+  isAvailable: boolean
+  groups: PackageGroupDto[]
+}
+
+// Request para POST /api/orders/{orderId}/details
+export interface SelectionRequest {
+  groupId: string
+  optionId: string
+}
+
+export interface AddOrderDetailRequest {
+  menuItemId: number    // int
+  quantity: number
+  isToGo: boolean
+  notes?: string
+  selections: SelectionRequest[]
+}
+
+// Response de POST /api/orders/{orderId}/details
+export interface OrderDetailSelectionDto {
+  id: string
+  packageGroupId: string
+  groupName: string
+  packageOptionId: string
+  optionNameSnapshot: string
+  extraPriceSnapshot: number
+}
+
+export interface OrderDetailDto {
+  id: number
+  orderId: number
+  menuItemId: number
+  menuItemName: string
+  quantity: number
+  unitPrice: number
+  subtotal: number
+  isToGo: boolean
+  notes?: string
+  selections: OrderDetailSelectionDto[]
+}
+
+// ── Disponibilidad diaria ─────────────────────────────────────────────────────
+
+export interface DailyOptionDto {
+  id: string
+  name: string
+  extraPrice: number
+  isAvailableToday: boolean
+  groupName: string
+  packageName: string
+}
+
+export interface DailyAvailabilityUpdateItem {
+  optionId: string
+  disponibleHoy: boolean
 }

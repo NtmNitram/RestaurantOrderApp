@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getMenuItems } from '../api/menuItems'
 import { getClients } from '../api/clients'
 import { createOrder } from '../api/orders'
-import { ArrowLeft, Plus, Minus, ShoppingBag, Search } from 'lucide-react'
+import { getPackages } from '../api/packages'
+import { ArrowLeft, Plus, Minus, ShoppingBag, Search, Package } from 'lucide-react'
 
 export default function NewOrderPage() {
   const { clientId } = useParams<{ clientId: string }>()
@@ -17,6 +18,9 @@ export default function NewOrderPage() {
 
   const { data: clients } = useQuery({ queryKey: ['clients'], queryFn: getClients })
   const { data: menuItems, isLoading } = useQuery({ queryKey: ['menuItems'], queryFn: getMenuItems })
+  const { data: packages } = useQuery({ queryKey: ['packages'], queryFn: getPackages })
+
+  const packageIds = useMemo(() => new Set(packages?.map(p => p.id) ?? []), [packages])
 
   const client = clients?.find(c => c.id === Number(clientId))
 
@@ -96,33 +100,60 @@ export default function NewOrderPage() {
       </div>
 
       <div className="grid gap-3 mb-4">
-        {menuItems?.filter(m => m.disponible && m.nombre.toLowerCase().includes(busqueda.toLowerCase())).map(item => (
-          <div
-            key={item.id}
-            className="bg-white rounded-xl border border-gray-200 p-4 flex items-center justify-between"
-          >
-            <div>
-              <p className="font-semibold text-gray-800">{item.nombre}</p>
-              <p className="text-sm text-orange-600 font-medium mt-0.5">${item.precio.toFixed(2)}</p>
-            </div>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => changeQty(item.id, -1)}
-                disabled={!items[item.id]}
-                className="w-8 h-8 rounded-full border border-gray-300 text-gray-600 hover:bg-gray-100 disabled:opacity-30 flex items-center justify-center transition-colors"
+        {menuItems?.filter(m => m.disponible && m.nombre.toLowerCase().includes(busqueda.toLowerCase())).map(item => {
+          const isPkg = packageIds.has(item.id)
+
+          if (isPkg) {
+            return (
+              <div
+                key={item.id}
+                className="bg-orange-50 border border-orange-100 rounded-xl p-4 flex items-center justify-between"
               >
-                <Minus className="w-3.5 h-3.5" />
-              </button>
-              <span className="w-6 text-center font-bold text-gray-800">{items[item.id] ?? 0}</span>
-              <button
-                onClick={() => changeQty(item.id, 1)}
-                className="w-8 h-8 rounded-full bg-orange-500 text-white hover:bg-orange-600 flex items-center justify-center transition-colors"
-              >
-                <Plus className="w-3.5 h-3.5" />
-              </button>
+                <div className="flex-1 min-w-0 pr-3">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <p className="font-semibold text-gray-800 truncate">{item.nombre}</p>
+                    <span className="flex items-center gap-0.5 text-[10px] bg-orange-200 text-orange-700 px-1.5 py-0.5 rounded font-medium flex-shrink-0">
+                      <Package className="w-2.5 h-2.5" />
+                      Paquete
+                    </span>
+                  </div>
+                  <p className="text-sm text-orange-600 font-medium mt-0.5">${item.precio.toFixed(2)}</p>
+                  <p className="text-[11px] text-gray-400 mt-1">
+                    Se configura desde Pedidos → Agregar artículos
+                  </p>
+                </div>
+              </div>
+            )
+          }
+
+          return (
+            <div
+              key={item.id}
+              className="bg-white rounded-xl border border-gray-200 p-4 flex items-center justify-between"
+            >
+              <div>
+                <p className="font-semibold text-gray-800">{item.nombre}</p>
+                <p className="text-sm text-orange-600 font-medium mt-0.5">${item.precio.toFixed(2)}</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => changeQty(item.id, -1)}
+                  disabled={!items[item.id]}
+                  className="w-8 h-8 rounded-full border border-gray-300 text-gray-600 hover:bg-gray-100 disabled:opacity-30 flex items-center justify-center transition-colors"
+                >
+                  <Minus className="w-3.5 h-3.5" />
+                </button>
+                <span className="w-6 text-center font-bold text-gray-800">{items[item.id] ?? 0}</span>
+                <button
+                  onClick={() => changeQty(item.id, 1)}
+                  className="w-8 h-8 rounded-full bg-orange-500 text-white hover:bg-orange-600 flex items-center justify-center transition-colors"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
 
       <textarea

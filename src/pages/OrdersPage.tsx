@@ -1,11 +1,13 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../context/AuthContext'
 import { getOrders, changeOrderStatus, changePaymentStatus, addItemsToOrder, removeItemFromOrder } from '../api/orders'
+import { getPackages } from '../api/packages'
 import { registerTableware } from '../api/tableware'
 import { getMenuItems } from '../api/menuItems'
-import type { Order } from '../types'
-import { CheckCircle, XCircle, Clock, MapPin, Navigation, Banknote, PlusCircle, Plus, Minus, X, Search, Archive, CalendarDays } from 'lucide-react'
+import type { Order, PackageDto } from '../types'
+import PackageSelectionModal from '../components/orders/PackageSelectionModal'
+import { CheckCircle, XCircle, Clock, MapPin, Navigation, Banknote, PlusCircle, Plus, Minus, X, Search, Archive, CalendarDays, Package } from 'lucide-react'
 
 // ── Helpers de fecha ──────────────────────────────────────────────────────────
 const FMT_MX = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Mexico_City' })
@@ -35,8 +37,16 @@ function AddItemsModal({ order, onClose }: { order: Order; onClose: () => void }
   const [items, setItems] = useState<Record<number, number>>({})
   const [notas, setNotas] = useState<Record<number, string>>({})
   const [busqueda, setBusqueda] = useState('')
+  const [packageForModal, setPackageForModal] = useState<PackageDto | null>(null)
 
   const { data: menuItems, isLoading } = useQuery({ queryKey: ['menuItems'], queryFn: getMenuItems })
+  const { data: packages } = useQuery({ queryKey: ['packages'], queryFn: getPackages })
+
+  const packageMap = useMemo(() => {
+    const m = new Map<number, PackageDto>()
+    packages?.forEach(p => m.set(p.id, p))
+    return m
+  }, [packages])
 
   const mutation = useMutation({
     mutationFn: () => addItemsToOrder(
@@ -67,91 +77,135 @@ function AddItemsModal({ order, onClose }: { order: Order; onClose: () => void }
   }
 
   const cantidadItems = Object.values(items).reduce((a, b) => a + b, 0)
+  const filteredItems = menuItems?.filter(
+    m => m.disponible && m.nombre.toLowerCase().includes(busqueda.toLowerCase())
+  ) ?? []
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative bg-white w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl shadow-xl max-h-[85vh] flex flex-col">
-        <div className="flex items-center justify-between p-5 border-b border-gray-100">
-          <div>
-            <h2 className="text-base font-bold text-gray-800">Agregar al pedido</h2>
-            <p className="text-xs text-gray-500 mt-0.5">{order.nombreCliente}</p>
-          </div>
-          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-500">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+    <>
+      {packageForModal && (
+        <PackageSelectionModal
+          pkg={packageForModal}
+          orderId={order.id}
+          onClose={() => setPackageForModal(null)}
+          onSuccess={() => setPackageForModal(null)}
+        />
+      )}
 
-        <div className="px-4 pt-3 pb-1">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
-            <input
-              type="text"
-              value={busqueda}
-              onChange={e => setBusqueda(e.target.value)}
-              placeholder="Buscar platillo..."
-              className="w-full pl-8 pr-8 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 bg-gray-50"
-            />
-            {busqueda && (
-              <button onClick={() => setBusqueda('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-                <X className="w-3.5 h-3.5" />
-              </button>
+      <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+        <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+        <div className="relative bg-white w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl shadow-xl max-h-[85vh] flex flex-col">
+          <div className="flex items-center justify-between p-5 border-b border-gray-100">
+            <div>
+              <h2 className="text-base font-bold text-gray-800">Agregar al pedido</h2>
+              <p className="text-xs text-gray-500 mt-0.5">{order.nombreCliente}</p>
+            </div>
+            <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-500">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="px-4 pt-3 pb-1">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+              <input
+                type="text"
+                value={busqueda}
+                onChange={e => setBusqueda(e.target.value)}
+                placeholder="Buscar platillo..."
+                className="w-full pl-8 pr-8 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 bg-gray-50"
+              />
+              {busqueda && (
+                <button onClick={() => setBusqueda('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="overflow-y-auto flex-1 p-4 space-y-2">
+            {isLoading ? (
+              <p className="text-center text-gray-400 py-8">Cargando menú...</p>
+            ) : (
+              filteredItems.map(item => {
+                const pkg = packageMap.get(item.id)
+                if (pkg) {
+                  // ── Ítem de paquete ─────────────────────────────────────────
+                  return (
+                    <div key={item.id} className="bg-orange-50 border border-orange-100 rounded-xl px-3 py-2.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <p className="text-sm font-medium text-gray-800 truncate">{item.nombre}</p>
+                            <span className="flex items-center gap-0.5 text-[10px] bg-orange-200 text-orange-700 px-1.5 py-0.5 rounded font-medium flex-shrink-0">
+                              <Package className="w-2.5 h-2.5" />
+                              Paquete
+                            </span>
+                          </div>
+                          <p className="text-xs text-orange-600 font-medium mt-0.5">${item.precio.toFixed(2)}</p>
+                        </div>
+                        <button
+                          onClick={() => setPackageForModal(pkg)}
+                          className="flex-shrink-0 text-xs bg-orange-500 text-white px-3 py-1.5 rounded-lg font-medium hover:bg-orange-600 transition-colors"
+                        >
+                          Configurar
+                        </button>
+                      </div>
+                    </div>
+                  )
+                }
+
+                // ── Ítem a la carta ─────────────────────────────────────────
+                return (
+                  <div key={item.id} className="bg-gray-50 rounded-xl px-3 py-2.5">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-gray-800">{item.nombre}</p>
+                        <p className="text-xs text-orange-600 font-medium">${item.precio.toFixed(2)}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => changeQty(item.id, -1)} disabled={!items[item.id]}
+                          className="w-7 h-7 rounded-full border border-gray-300 text-gray-600 hover:bg-gray-100 disabled:opacity-30 flex items-center justify-center">
+                          <Minus className="w-3 h-3" />
+                        </button>
+                        <span className="w-5 text-center text-sm font-bold text-gray-800">{items[item.id] ?? 0}</span>
+                        <button onClick={() => changeQty(item.id, 1)}
+                          className="w-7 h-7 rounded-full bg-orange-500 text-white hover:bg-orange-600 flex items-center justify-center">
+                          <Plus className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+                    {(items[item.id] ?? 0) > 0 && (
+                      <input
+                        type="text"
+                        value={notas[item.id] ?? ''}
+                        onChange={e => setNotas(prev => ({ ...prev, [item.id]: e.target.value }))}
+                        placeholder="Nota: sin salsa, extra queso..."
+                        maxLength={300}
+                        className="mt-2 w-full text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-orange-400 bg-white text-gray-700 placeholder:text-gray-400"
+                      />
+                    )}
+                  </div>
+                )
+              })
             )}
           </div>
-        </div>
 
-        <div className="overflow-y-auto flex-1 p-4 space-y-2">
-          {isLoading ? (
-            <p className="text-center text-gray-400 py-8">Cargando menú...</p>
-          ) : (
-            menuItems?.filter(m => m.disponible && m.nombre.toLowerCase().includes(busqueda.toLowerCase())).map(item => (
-              <div key={item.id} className="bg-gray-50 rounded-xl px-3 py-2.5">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-800">{item.nombre}</p>
-                    <p className="text-xs text-orange-600 font-medium">${item.precio.toFixed(2)}</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button onClick={() => changeQty(item.id, -1)} disabled={!items[item.id]}
-                      className="w-7 h-7 rounded-full border border-gray-300 text-gray-600 hover:bg-gray-100 disabled:opacity-30 flex items-center justify-center">
-                      <Minus className="w-3 h-3" />
-                    </button>
-                    <span className="w-5 text-center text-sm font-bold text-gray-800">{items[item.id] ?? 0}</span>
-                    <button onClick={() => changeQty(item.id, 1)}
-                      className="w-7 h-7 rounded-full bg-orange-500 text-white hover:bg-orange-600 flex items-center justify-center">
-                      <Plus className="w-3 h-3" />
-                    </button>
-                  </div>
-                </div>
-                {(items[item.id] ?? 0) > 0 && (
-                  <input
-                    type="text"
-                    value={notas[item.id] ?? ''}
-                    onChange={e => setNotas(prev => ({ ...prev, [item.id]: e.target.value }))}
-                    placeholder="Nota: sin salsa, extra queso..."
-                    maxLength={300}
-                    className="mt-2 w-full text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-orange-400 bg-white text-gray-700 placeholder:text-gray-400"
-                  />
-                )}
-              </div>
-            ))
-          )}
-        </div>
-
-        <div className="p-4 border-t border-gray-100">
-          {mutation.isError && (
-            <p className="text-xs text-red-600 mb-2">Error al agregar. Intenta de nuevo.</p>
-          )}
-          <button
-            onClick={() => mutation.mutate()}
-            disabled={cantidadItems === 0 || mutation.isPending}
-            className="w-full bg-orange-500 text-white py-3 rounded-xl font-medium hover:bg-orange-600 disabled:opacity-40 transition-colors"
-          >
-            {mutation.isPending ? 'Agregando...' : `Agregar ${cantidadItems > 0 ? `(${cantidadItems})` : ''}`}
-          </button>
+          <div className="p-4 border-t border-gray-100">
+            {mutation.isError && (
+              <p className="text-xs text-red-600 mb-2">Error al agregar. Intenta de nuevo.</p>
+            )}
+            <button
+              onClick={() => mutation.mutate()}
+              disabled={cantidadItems === 0 || mutation.isPending}
+              className="w-full bg-orange-500 text-white py-3 rounded-xl font-medium hover:bg-orange-600 disabled:opacity-40 transition-colors"
+            >
+              {mutation.isPending ? 'Agregando...' : `Agregar ${cantidadItems > 0 ? `(${cantidadItems})` : ''}`}
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   )
 }
 

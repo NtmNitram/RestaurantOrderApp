@@ -1,5 +1,5 @@
 import apiClient from './client'
-import type { Order, CreateOrderDto, DailySummary } from '../types'
+import type { Order, CreateOrderDto, DailySummary, AddOrderDetailRequest, OrderDetailDto } from '../types'
 
 export const getOrders = async (date?: string): Promise<Order[]> => {
   const res = await apiClient.get<Order[]>('/Orders', date ? { params: { date } } : undefined)
@@ -35,3 +35,9 @@ export const getDailySummary = async (params?: { startDate?: string; endDate?: s
   const res = await apiClient.get<DailySummary>('/Orders/summary/daily', { params })
   return res.data
 }
+
+export const addOrderDetail = (
+  orderId: number,
+  request: AddOrderDetailRequest
+): Promise<OrderDetailDto> =>
+  apiClient.post(`/Orders/${orderId}/details`, request).then(r => r.data)

@@ -7,6 +7,7 @@ import ClientsPage from './pages/ClientsPage'
 import NewOrderPage from './pages/NewOrderPage'
 import OrdersPage from './pages/OrdersPage'
 import DailySummaryPage from './pages/DailySummaryPage'
+import DailyMenuPage from './pages/DailyMenuPage'
 import MenuPage from './pages/MenuPage'
 import VajillaPage from './pages/VajillaPage'
 import CocinaPage from './pages/CocinaPage'
@@ -44,6 +45,14 @@ export default function App() {
               element={
                 <ProtectedRoute role="Administrador">
                   <DailySummaryPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="menu-dia"
+              element={
+                <ProtectedRoute role="Administrador">
+                  <DailyMenuPage />
                 </ProtectedRoute>
               }
             />
