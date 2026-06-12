@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { X } from 'lucide-react'
-import type { Order } from '../../types'
+import type { Order, OrderDetail } from '../../types'
 import { changeOrderStatus } from '../../api/orders'
+import { useAuth } from '../../context/AuthContext'
 
 function formatTime(isoDate: string): string {
   return new Intl.DateTimeFormat('es-MX', {
@@ -13,9 +14,16 @@ function formatTime(isoDate: string): string {
   }).format(new Date(isoDate))
 }
 
+function buildKitchenLabel(item: OrderDetail): string {
+  if (!item.selections || item.selections.length === 0) return item.nombreArticulo
+  const opciones = item.selections.map(s => s.optionNameSnapshot).join(', ')
+  return `${item.nombreArticulo} — ${opciones}`
+}
+
 export default function OrderCard({ order }: { order: Order }) {
   const queryClient = useQueryClient()
   const [confirming, setConfirming] = useState(false)
+  const { featureFlags } = useAuth()
 
   const mutation = useMutation({
     mutationFn: () => changeOrderStatus(order.id, 1),
@@ -55,7 +63,12 @@ export default function OrderCard({ order }: { order: Order }) {
               <span className="text-orange-300 font-bold text-lg leading-none w-6 text-right flex-shrink-0">
                 {item.cantidad}×
               </span>
-              <span className="text-white text-base leading-snug flex-1">{item.nombreArticulo}</span>
+              <span className="text-white text-base leading-snug flex-1">
+                {featureFlags.packageOptions ? buildKitchenLabel(item) : item.nombreArticulo}
+                {featureFlags.packageOptions && item.isToGo && (
+                  <span className="ml-2 text-yellow-300 text-xs">🥡 Para llevar</span>
+                )}
+              </span>
               <span className="text-gray-500 text-xs flex-shrink-0">{formatTime(item.createdAt)}</span>
             </div>
             {item.notas && (

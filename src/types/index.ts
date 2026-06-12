@@ -30,6 +30,7 @@ export interface OrderDetail {
   createdAt: string
   notas?: string | null
   isToGo?: boolean
+  selections?: OrderDetailSelectionDto[]
 }
 
 export interface Order {

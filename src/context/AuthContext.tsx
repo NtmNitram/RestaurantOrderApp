@@ -2,10 +2,25 @@ import { createContext, useContext, useState, useEffect, type ReactNode } from '
 import { login as apiLogin, logout as apiLogout, refresh as apiRefresh, type LoginRequest } from '../api/auth'
 import { tokenStore } from '../api/tokenStore'
 
+function parseFeatureFlags(token: string | null): { packageOptions: boolean } {
+  if (!token) return { packageOptions: false }
+  try {
+    const payload = token.split('.')[1]
+    const decoded = atob(payload.replace(/-/g, '+').replace(/_/g, '/'))
+    const claims = JSON.parse(decoded) as Record<string, unknown>
+    const ff = claims['featureFlags']
+    if (ff && typeof ff === 'object') {
+      return { packageOptions: !!((ff as Record<string, unknown>)['packageOptions']) }
+    }
+  } catch { /* ignore */ }
+  return { packageOptions: false }
+}
+
 interface AuthState {
   token: string | null
   role: string | null
   username: string | null
+  featureFlags: { packageOptions: boolean }
 }
 
 interface AuthContextValue extends AuthState {
@@ -22,11 +37,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     token: null,
     role: localStorage.getItem('role'),
     username: localStorage.getItem('username'),
+    featureFlags: { packageOptions: false },
   })
   const [isInitializing, setIsInitializing] = useState(!!localStorage.getItem('role'))
 
   useEffect(() => {
-    tokenStore.register((token) => setAuth(prev => ({ ...prev, token })))
+    tokenStore.register((token) => setAuth(prev => ({ ...prev, token, featureFlags: parseFeatureFlags(token) })))
 
     if (localStorage.getItem('role') && !tokenStore.get()) {
       apiRefresh()
@@ -34,13 +50,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           tokenStore.set(result.token)
           localStorage.setItem('role', result.role)
           localStorage.setItem('username', result.username)
-          setAuth({ token: result.token, role: result.role, username: result.username })
+          setAuth({ token: result.token, role: result.role, username: result.username, featureFlags: parseFeatureFlags(result.token) })
         })
         .catch(() => {
           tokenStore.set(null)
           localStorage.removeItem('role')
           localStorage.removeItem('username')
-          setAuth({ token: null, role: null, username: null })
+          setAuth({ token: null, role: null, username: null, featureFlags: { packageOptions: false } })
         })
         .finally(() => setIsInitializing(false))
     }
@@ -53,7 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     tokenStore.set(result.token)
     localStorage.setItem('role', result.role)
     localStorage.setItem('username', result.username)
-    setAuth({ token: result.token, role: result.role, username: result.username })
+    setAuth({ token: result.token, role: result.role, username: result.username, featureFlags: parseFeatureFlags(result.token) })
   }
 
   const logout = async () => {
@@ -61,7 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     tokenStore.set(null)
     localStorage.removeItem('role')
     localStorage.removeItem('username')
-    setAuth({ token: null, role: null, username: null })
+    setAuth({ token: null, role: null, username: null, featureFlags: { packageOptions: false } })
   }
 
   return (
