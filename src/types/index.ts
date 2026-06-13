@@ -18,6 +18,7 @@ export interface MenuItem {
   descripcion: string
   precio: number
   disponible: boolean
+  toGoSurcharge?: number
 }
 
 export interface OrderDetail {
@@ -70,6 +71,7 @@ export interface CreateMenuItemDto {
   nombre: string
   descripcion?: string
   precio: number
+  toGoSurcharge?: number
 }
 
 export interface UpdateMenuItemDto {
@@ -77,6 +79,7 @@ export interface UpdateMenuItemDto {
   descripcion?: string
   precio: number
   disponible: boolean
+  toGoSurcharge?: number
 }
 
 // Lo que se manda al crear un pedido

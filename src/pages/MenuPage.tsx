@@ -14,6 +14,7 @@ function MenuItemModal({ item, onClose }: MenuItemModalProps) {
   const [nombre, setNombre] = useState(item?.nombre ?? '')
   const [descripcion, setDescripcion] = useState(item?.descripcion ?? '')
   const [precio, setPrecio] = useState(item ? String(item.precio) : '')
+  const [recargo, setRecargo] = useState(item?.toGoSurcharge ? String(item.toGoSurcharge) : '')
 
   const createMutation = useMutation({
     mutationFn: (dto: CreateMenuItemDto) => createMenuItem(dto),
@@ -28,15 +29,16 @@ function MenuItemModal({ item, onClose }: MenuItemModalProps) {
   const isPending = createMutation.isPending || updateMutation.isPending
   const isError = createMutation.isError || updateMutation.isError
   const precioNum = parseFloat(precio)
+  const recargoNum = parseFloat(recargo) || 0
   const isValid = nombre.trim() && !isNaN(precioNum) && precioNum > 0
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!isValid) return
     if (item) {
-      updateMutation.mutate({ nombre: nombre.trim(), descripcion: descripcion.trim() || undefined, precio: precioNum, disponible: item.disponible })
+      updateMutation.mutate({ nombre: nombre.trim(), descripcion: descripcion.trim() || undefined, precio: precioNum, disponible: item.disponible, toGoSurcharge: recargoNum })
     } else {
-      createMutation.mutate({ nombre: nombre.trim(), descripcion: descripcion.trim() || undefined, precio: precioNum })
+      createMutation.mutate({ nombre: nombre.trim(), descripcion: descripcion.trim() || undefined, precio: precioNum, toGoSurcharge: recargoNum })
     }
   }
 
@@ -97,6 +99,24 @@ function MenuItemModal({ item, onClose }: MenuItemModalProps) {
             />
           </div>
 
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Recargo para llevar <span className="text-gray-400 font-normal">(opcional · solo aplica a paquetes)</span>
+            </label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={recargo}
+                onChange={e => setRecargo(e.target.value)}
+                placeholder="Ej. 10.00"
+                className="w-full border border-gray-300 rounded-xl pl-7 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+              />
+            </div>
+          </div>
+
           {isError && (
             <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
               Error al guardar el platillo. Intenta de nuevo.
@@ -125,7 +145,7 @@ export default function MenuPage() {
 
   const toggleMutation = useMutation({
     mutationFn: (item: MenuItem) =>
-      updateMenuItem(item.id, { nombre: item.nombre, descripcion: item.descripcion ?? undefined, precio: item.precio, disponible: !item.disponible }),
+      updateMenuItem(item.id, { nombre: item.nombre, descripcion: item.descripcion ?? undefined, precio: item.precio, disponible: !item.disponible, toGoSurcharge: item.toGoSurcharge ?? 0 }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['menuItems'] }),
   })
 
