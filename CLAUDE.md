@@ -2,6 +2,23 @@
 
 > Archivo de referencia para sesiones de desarrollo con Claude.
 > No modificar manualmente.
+> Última actualización: 2026-06-15
+
+---
+
+## Documentos de referencia del proyecto
+
+Los siguientes archivos viven en `RestaurantOrderAPI/` (repo del backend) y son la fuente de verdad para arquitectura, schema y estado del proyecto:
+
+| Archivo | Contenido |
+|---|---|
+| `ARCHITECTURE.md` | Stack, capas, multi-tenancy, auth, rutas, deploy, decisiones negativas |
+| `SCHEMA.md` | Tablas, campos, índices, migraciones aplicadas |
+| `BACKLOG.md` | Pendientes actuales, done, notas de sesión |
+| `ROADMAP.md` | Estado por fase con checkboxes |
+| `CONVENTIONS.md` | Naming, patrones de código, convenciones EF Core y React Query |
+| `ADR-001-to-005.md` | Decisiones de arquitectura documentadas |
+| `PROMPTS.md` | Templates para iniciar sesiones de Claude Code |
 
 ---
 
@@ -31,25 +48,27 @@ También maneja **domicilios** para clientes frecuentes que llaman por teléfono
 
 ```
 RestaurantOrderAPI/src/
-├── Domain/         Entidades + interfaces + enums
+├── Domain/         Entidades + interfaces + enums + servicios de dominio
 ├── Application/    DTOs + servicios + interfaces
 ├── Infrastructure/ AppDbContext + repositorios + DbSeeder + Migrations
-└── API/            Controllers + middleware + Program.cs
+└── API/            Controllers + middleware + Program.cs + Services (CurrentRestaurantService, CurrentUserService)
 ```
 
 - Base de datos: **PostgreSQL** con migraciones EF Core (`dotnet ef database update`).
   Driver: `Npgsql.EntityFrameworkCore.PostgreSQL 10.0.1` en Infrastructure y API.
 - Multi-tenancy: entidad `Restaurant` con `RestaurantId` en Client, MenuItem, Order, User.
-  EF Core global query filters filtran por restaurante automáticamente.
+  EF Core global query filters fusionan `RestaurantId + !IsDeleted` en **una sola** llamada a `HasQueryFilter`.
   `ICurrentRestaurantService` lee el `restaurantId` del JWT (`CurrentRestaurantService`).
   Login usa `IgnoreQueryFilters()` porque el restaurantId aún no se conoce.
-  `OrderService`, `MenuItemService`, `ClientService` y `TablewareService` inyectan `ICurrentRestaurantService` para asignar `RestaurantId` al crear. Todo servicio nuevo que cree entidades debe seguir este patrón.
-- Autenticación: **JWT Bearer Token** (access token en memoria) + **Refresh Token** (cookie httpOnly, 7 días, rotación en cada uso).
+  **Todo servicio que crea entidades con `RestaurantId` DEBE inyectar `ICurrentRestaurantService`** — omitirlo produce RestaurantId vacío y FK violation HTTP 500.
+  Servicios verificados: `OrderService`, `MenuItemService`, `ClientService`, `TablewareService`, `PackageService`.
+- Autenticación: **JWT Bearer Token** (access token en memoria, 15 min) + **Refresh Token** (cookie httpOnly, 7 días, rotación en cada uso).
+- Claims en JWT: `sub` (userId), `name` (username), `role`, `restaurantId`, `featureFlags` (JSON del tenant).
 - Roles actuales: `"Administrador"`, `"Empleado"`, `"Cocina"` (credenciales semilla: admin/admin123, empleado/empleado123, cocina/cocina123).
-  El rol `"Cocina"` solo puede acceder a `GET /api/orders` — todos los demás endpoints requieren roles específicos.
+  El rol `"Cocina"` solo puede acceder a `GET /api/orders` y marcar Entregado — login dedicado en `/cocina`.
   Roles Fase 2: + `"Cajera"` (solo ve pedidos Delivered+PendienteCobro, marca Cobrado).
 - CORS: `WithOrigins(allowedOrigins)` + `AllowCredentials()`. Orígenes configurados en `appsettings.json` (`Cors:AllowedOrigins`).
-- Fechas: usar siempre `DateTime.UtcNow` — PostgreSQL/Npgsql rechaza `DateTime.Now` (hora local).
+- Fechas: usar siempre `DateTime.UtcNow` — PostgreSQL/Npgsql rechaza `DateTime.Now` (hora local). Toda fecha que entre al repositorio como parámetro de query debe tener `Kind = Utc` explícito.
 
 ### Configuración local
 
@@ -59,23 +78,38 @@ RestaurantOrderAPI/src/
 
 ---
 
-## Fase 0 — Seguridad crítica (completada 2026-05-16)
+## Estado del proyecto — Fase actual
 
-| Item | Backend | Frontend |
-|---|---|---|
-| CORS restringido por origen (`WithOrigins` + `AllowCredentials`) | ✅ | — |
-| Entidad `RefreshToken` + migración EF Core | ✅ | — |
-| `JwtTokenService` — genera access token (15 min) + refresh token aleatorio | ✅ | — |
-| `AuthService` — login, refresh con rotación, logout | ✅ | — |
-| `AuthController` — cookie httpOnly con refresh token, `/refresh`, `/logout` | ✅ | — |
-| `tokenStore` — puente en memoria entre interceptor Axios y AuthContext | — | ✅ |
-| Access token solo en memoria (no localStorage) | — | ✅ |
-| Interceptor Axios con retry automático en 401 vía `/Auth/refresh` | — | ✅ |
-| `isAuthenticated` basado en `role` (localStorage) para sobrevivir reloads | — | ✅ |
+### Fase 0 — Seguridad crítica (🟡 casi completa)
+
+| Item | Estado |
+|---|---|
+| CORS restringido (`WithOrigins` + `AllowCredentials`) | ✅ |
+| Refresh Token Rotation (tabla `RefreshTokens`, rotación, detección de robo) | ✅ |
+| Access token en memoria (`tokenStore.ts`) — no localStorage | ✅ |
+| Interceptor Axios con retry en 401 vía `/Auth/refresh` | ✅ |
+| Auto-refresh silencioso en mount de `AuthContext` | ✅ |
+| `isInitializing` gate en `ProtectedRoute` y `CocinaPage` | ✅ |
+| `UseForwardedHeaders()` como primer middleware (Railway proxy) | ✅ |
+| Cookie `SameSite=None; Secure` en HTTPS cross-site (Vercel→Railway) | ✅ |
+| Serilog + Health check `/health` | ✅ |
+| AuditLog + `AuditInterceptor` | ✅ |
+| Soft delete universal (`ISoftDeletable`) | ✅ |
+| Índices compuestos (`RestaurantId` como primera columna) | ✅ |
+| Decimal precision `HasPrecision(10,2)` | ✅ |
+| Backup diario Backblaze B2 (GitHub Actions) | ✅ |
+| Secrets en Railway — nunca en repo | ✅ |
+| **Rate limiting** (login: 5 req/min por IP) | ❌ pendiente |
+| **Sentry** (captura de excepciones no manejadas) | ❌ pendiente |
+| **UptimeRobot** (ping a `/health` cada 5 min) | ❌ pendiente |
+| Tests de integración multi-tenant (5+ casos) | ❌ pendiente |
+| Entorno de staging en Railway separado | ❌ pendiente |
+| Penetration test manual (IDOR, cross-tenant, brute force) | ❌ pendiente |
+| Alta SAT (RESICO) + contrato + aviso de privacidad | ❌ pendiente (cliente) |
 
 ---
 
-## Módulo 1 — Estado actual (al 2026-05-31)
+## Módulo 1 — Estado actual (al 2026-06-12)
 
 ### Funcionalidades implementadas
 
@@ -91,10 +125,10 @@ RestaurantOrderAPI/src/
 | Toma de pedido por cliente o mesa | ✅ | ✅ |
 | Buscador de platillos en pantalla "Nuevo pedido" | ✅ | — |
 | Agregar artículos a pedido (Pendiente o Entregado+PendienteCobro) | ✅ | ✅ |
-| Reactivar pedido Delivered → Pending al agregar artículos (cocina ve nuevos artículos) | — | ✅ |
+| Reactivar pedido Delivered → Pending al agregar artículos | — | ✅ |
 | Buscador de platillos en modal "Agregar al pedido" | ✅ | — |
 | Listado de pedidos del día con buscador | ✅ | ✅ |
-| Marcar pedido Entregado / Cancelado | ✅ | ✅ |
+| Marcar pedido Cancelado | ✅ | ✅ |
 | Estado de cobro por pedido (Cobrar → Cobrado) | ✅ | ✅ |
 | Pestaña "Pendientes" = sin cobrar (no cancelados) | ✅ | ✅ |
 | Badge del navbar refleja pendientes de cobro | ✅ | — |
@@ -105,44 +139,53 @@ RestaurantOrderAPI/src/
 | Recuperación de vajilla restringida a Administrador | ✅ | ✅ |
 | Badge del navbar refleja vajilla pendiente de recuperar | ✅ | — |
 | Navbar muestra solo el rol (no el username) | ✅ | — |
-| Roles renombrados: Administrador / Empleado | ✅ | ✅ |
 | Pantalla de cocina — polling 15s, flash + beep al llegar pedidos | ✅ | ✅ |
 | Login dedicado para rol Cocina en /cocina | ✅ | ✅ |
-| Usuario cocina/cocina123 en seeder | — | ✅ |
-| Login inputs: autoCapitalize, lowercase, placeholders correctos | ✅ | — |
-| Restauración silenciosa de sesión al recargar (auto-refresh en AuthContext) | ✅ | — |
-| `isInitializing` gate en ProtectedRoute y CocinaPage (evita race condition) | ✅ | — |
 | Hora de creación por artículo en pantalla de cocina (CreatedAt) | ✅ | ✅ |
 | Eliminar artículo de pedido PendienteCobro (botón X en OrdersPage) | ✅ | ✅ |
+| Nota por artículo (Notes en OrderDetail) | ✅ | ✅ |
+| Filtro de fechas en OrdersPage (Desde/Hasta, default hoy MX) | ✅ | ✅ |
+| Polling automático en OrdersPage para Empleado (10s) | ✅ | — |
+| Rol Empleado restringido en ClientsPage (solo mesas) | ✅ | — |
+| Cocina marca pedido como Entregado (confirmación inline) | ✅ | ✅ |
+| Botón Entregar eliminado de OrdersPage (solo Cocina entrega) | ✅ | — |
 | Vajilla acumula QuantityDelivered si ya existe registro (re-entrega) | — | ✅ |
+| Paquetes con opciones dinámicas — CRUD admin | ✅ | ✅ |
+| Paquetes — flujo mesero (PackageSelectionModal, AddItemsModal) | ✅ | ✅ |
+| Paquetes — menú del día (/menu-dia, DailyMenuPage) | ✅ | ✅ |
+| Paquetes — cocina muestra opciones seleccionadas (feature flag) | ✅ | ✅ |
+| Campo IsToGo en OrderDetail (para llevar, por artículo) | ✅ | ✅ |
+| ToGoSurcharge en MenuItem y formulario de menú | ✅ | ✅ |
+| FeatureFlags JSONB en Restaurant | — | ✅ |
+| featureFlags en AuthContext (parseado del JWT) | ✅ | — |
 
-### Flujo operativo definido (2026-05-16)
+### Pendiente de implementar
 
-El restaurante operaba con papeles: mesero escribe pedido a mano, lleva copia a cocina y cliente lleva recibo a caja.
+- [ ] **Claim `featureFlags` en JWT** — backend debe leer `Restaurant.FeatureFlags` y emitirlo en el token al hacer login/refresh. Sin esto el flag siempre es `false` aunque la BD esté actualizada.
+- [ ] **Activar PackageOptions para El Arca de Adán** (después del claim): `UPDATE "Restaurant" SET "FeatureFlags" = '{"packageOptions": true}' WHERE "Name" = 'El Arca de Adán'`
+- [ ] **DeliveryRound** — entidad, estados Open/Closed, FK nullable en Order (solo Externo)
+- [ ] Pantalla del vendedor: lista de pedidos de ronda activa, cobro + recuperación en batch
+- [ ] Cierre de ronda con validación de pedidos sin cobrar
+- [ ] Reporte diario por vendedor y por platillo
+- [ ] PWA: manifest.json, ícono, splash, `display: standalone`
+- [ ] Rol "Cajera" (Fase 2)
 
-**Flujo objetivo con la app:**
-- Empleado (celular): toma pedido en app, marca Entregado
-- Cocina (tableta fija): ve pedidos Pending en tiempo real
-- Cajera (tableta en caja): ve pedidos Delivered+PendienteCobro, marca Cobrado
+---
 
-**Roles necesarios:** Empleado, Cocina, Cajera, Administrador
+## Flujo de estados del pedido
 
-**Plan de adopción en dos fases:**
-- Fase 1 (inmediata): pantalla de cocina con polling 30s — elimina papel de cocina. Empleado sigue marcando Cobrado como ahora.
-- Fase 2 (después de 30 días en producción): cajera tiene su pantalla y marca Cobrado. Empleado ya no toca el cobro.
+```
+Toma de pedido → Status: Pending, PaymentStatus: PendienteCobro
+     ↓ (se pueden agregar más artículos mientras PaymentStatus == PendienteCobro)
+Cocina marca Entregado → Status: Delivered
+     ↓ (si se agregan artículos desde Delivered → vuelve a Pending para que cocina lo vea)
+Cobro al cierre → PaymentStatus: Cobrado
+```
 
-### Pendiente de implementar (actualizado)
-
-- ✅ Control de vajilla (completo — 2026-05-21)
-  - ✅ Paso 1: Entidad `OrderTableware` + migración EF Core
-  - ✅ Paso 2: `IOrderTablewareRepository` + implementación + UnitOfWork
-  - ✅ Paso 3: DTOs + `ITablewareService` + `TablewareService`
-  - ✅ Paso 4: `TablewareController` + registro en `Program.cs`
-  - ✅ Paso 5: Frontend — `VajillaPage` + modal en `OrdersPage` + navbar
-- ✅ Pantalla de cocina `/cocina` — polling 15s, flash + beep, rol Cocina con login inline (2026-05-22)
-- ✅ Rol "Cocina" — solo ve pantalla de cocina (2026-05-22)
-- [ ] Rol "Cajera" — solo ve pedidos Delivered+PendienteCobro, marca Cobrado (Fase 2)
-- [ ] Flujo de cierre de ronda / DeliveryRound (después de vajilla)
+- `Status`: Pending → Delivered (solo Cocina) o Cancelled; Delivered → Cancelled.
+- `PaymentStatus`: PendienteCobro → Cobrado. No aplica a Cancelados.
+- "Pendientes" en la app = `estadoCobro !== 'Cobrado' && estado !== 'Cancelado'`.
+- `Order.Total` siempre se recalcula como `SUM(OrderDetail.Subtotal)` — nunca como incremento.
 
 ---
 
@@ -154,16 +197,29 @@ Id, Name, Tipo ("Externo"|"Domicilio"|"Mesa"),
 LocalNumber? (campo legacy, ya no se usa),
 Referencia?, PhoneNumber?,
 DireccionEntrega?, ReferenciaDomicilio?, IsActive,
-RestaurantId
+IsDeleted, DeletedAt, RestaurantId
 ```
-- `Externo` → `Referencia` opcional (negocio cercano, dentro o fuera de la plaza)
-- `Domicilio` → `DireccionEntrega` + `Telefono` requeridos, `ReferenciaDomicilio` opcional
-- `Mesa` → solo `Name` ("Mesa 1"..."Mesa 11"). Sin botón eliminar en la UI.
-- Tipo `Plaza` fue eliminado y unificado con `Externo` (2026-05-15).
 
 ### MenuItem
 ```
-Id, Name, Description?, Price, IsAvailable, RestaurantId
+Id, Name, Description?, Price decimal(10,2),
+IsAvailable, IsDeleted, DeletedAt,
+ItemKind ("ALaCarta"|"Package"), ToGoSurcharge decimal(10,2),
+RestaurantId
+```
+
+### PackageGroup
+```
+Id (Guid, app-generated), MenuItemId, RestaurantId,
+Name, SortOrder, MinSelections, MaxSelections, AllowExtra
+```
+
+### PackageOption
+```
+Id (Guid, app-generated), PackageGroupId, RestaurantId,
+Name, ExtraPrice decimal(10,2),
+IsDailyRotating, IsAvailableToday,
+IsDeleted, DeletedAt
 ```
 
 ### Order
@@ -171,8 +227,27 @@ Id, Name, Description?, Price, IsAvailable, RestaurantId
 Id, ClientId, RestaurantId, OrderDate (UTC),
 Status (Pending/Delivered/Cancelled),
 PaymentStatus (PendienteCobro/Cobrado),
-Notes?, Total
-→ OrderDetails: MenuItemId, Quantity, UnitPrice, Subtotal, CreatedAt (UTC, DEFAULT now())
+Notes?, Total decimal(10,2),
+IsDeleted, DeletedAt,
+DeliveryRoundId? (nullable — solo Externo)
+→ OrderDetails
+```
+
+### OrderDetail
+```
+Id, OrderId, MenuItemId,
+Quantity, UnitPrice decimal(10,2), Subtotal decimal(10,2),
+Notes VARCHAR(300)?,
+IsToGo bool (default false),
+CreatedAt TIMESTAMPTZ (DEFAULT now())
+→ OrderDetailSelections (solo paquetes)
+```
+
+### OrderDetailSelection
+```
+Id (Guid, app-generated), OrderDetailId, PackageOptionId,
+OptionNameSnapshot VARCHAR(200),   ← congelado al crear pedido
+ExtraPriceSnapshot decimal(10,2)   ← congelado al crear pedido
 ```
 
 ### OrderTableware
@@ -187,7 +262,6 @@ DeliveredAt (UTC), RecoveredAt? (UTC)
 - Un pedido tiene máximo un registro de vajilla.
 - La recuperación es acumulativa (`QuantityRecovered` se suma en cada llamada a `/recover`).
 - `Pendiente` = `QuantityDelivered - (QuantityRecovered ?? 0)`.
-- `GET /pending` filtra donde `QuantityRecovered is null || QuantityRecovered < QuantityDelivered`.
 
 ### User
 ```
@@ -196,24 +270,8 @@ Id, Username, PasswordHash, Role, RestaurantId
 
 ### Restaurant
 ```
-Id, Name, IsActive
+Id, Name, IsActive, FeatureFlags JSONB (default '{}')
 ```
-
----
-
-## Flujo de estados del pedido
-
-```
-Toma de pedido → Status: Pending, PaymentStatus: PendienteCobro
-     ↓ (se pueden agregar más artículos mientras PaymentStatus == PendienteCobro)
-Entrega → Status: Delivered
-     ↓ (si se agregan artículos desde Delivered → vuelve a Pending para que cocina lo vea)
-Cobro al cierre → PaymentStatus: Cobrado
-```
-
-- `Status`: Pending → Delivered o Cancelled; Delivered → Cancelled.
-- `PaymentStatus`: PendienteCobro → Cobrado. No aplica a Cancelados.
-- "Pendientes" en la app = `estadoCobro !== 'Cobrado' && estado !== 'Cancelado'`.
 
 ---
 
@@ -228,6 +286,7 @@ Cobro al cierre → PaymentStatus: Cobrado
 | `/pedidos` | OrdersPage | Cualquiera autenticado |
 | `/vajilla` | VajillaPage | Cualquiera autenticado |
 | `/menu` | MenuPage | Solo Administrador |
+| `/menu-dia` | DailyMenuPage | Solo Administrador |
 | `/resumen` | DailySummaryPage | Solo Administrador |
 
 ---
@@ -239,34 +298,51 @@ Cobro al cierre → PaymentStatus: Cobrado
 - `GET /{id}` — por ID
 - `POST /` — crear `{ nombre, tipo, referencia?, telefono?, direccionEntrega?, referenciaDomicilio? }`
 - `PUT /{id}` — actualizar
-- `DELETE /{id}` — eliminar
+- `DELETE /{id}` — soft delete
 
 **Menú** `api/menuitems`
 - `GET /` — todos los platillos (autenticado)
 - `GET /available` — solo disponibles
 - `GET /{id}` — por ID
-- `POST /` — crear `{ nombre, descripcion?, precio }` **(solo Administrador)**
-- `PUT /{id}` — actualizar `{ nombre, descripcion?, precio, disponible }` **(solo Administrador)**
-- `DELETE /{id}` — eliminar **(solo Administrador)**
+- `POST /` — crear `{ nombre, descripcion?, precio, itemKind?, toGoSurcharge? }` **(solo Administrador)**
+- `PUT /{id}` — actualizar **(solo Administrador)**
+- `DELETE /{id}` — soft delete **(solo Administrador)**
+
+**Paquetes** `api/packages` **(solo Administrador)**
+- `GET /` — todos los paquetes con grupos y opciones
+- `GET /{id}` — paquete por ID
+- `POST /` — crear paquete
+- `PUT /{id}` — actualizar paquete
+- `DELETE /{id}` — soft delete (falla si tiene pedidos activos)
+- `POST /{id}/groups` — agregar grupo
+- `PUT /groups/{groupId}` — actualizar grupo
+- `DELETE /groups/{groupId}` — eliminar grupo (falla si tiene opciones activas)
+- `POST /groups/{groupId}/options` — agregar opción
+- `PUT /options/{optionId}` — actualizar opción
+- `DELETE /options/{optionId}` — soft delete opción
+- `GET /options/availability` — pantalla menú del día (opciones con IsDailyRotating=true)
+- `PUT /options/availability` — actualizar IsAvailableToday en lote
 
 **Órdenes** `api/orders`
 - `GET /` — pedidos del día — roles: Administrador, Empleado, Cocina
-- `POST /` — crear pedido `{ clienteId, notas?, articulos: [{articuloId, cantidad}] }`
-- `POST /{id}/items` — agregar artículos (válido mientras `PaymentStatus == PendienteCobro`, incluye Entregados)
-- `DELETE /{orderId}/items/{itemId}` — eliminar artículo (válido mientras `PaymentStatus == PendienteCobro`, mínimo 1 artículo) **(Administrador/Empleado)**
+- `GET /?date=YYYY-MM-DD` — pedidos de una fecha específica (ventana UTC-6)
+- `POST /` — crear pedido `{ clienteId, notas?, articulos: [{articuloId, cantidad, notas?}] }`
+- `POST /{id}/items` — agregar artículos ALaCarta en lote (válido mientras PendienteCobro)
+- `POST /{orderId}/details` — agregar artículo individual con selecciones de paquete `{ menuItemId, quantity, isToGo, notas?, selections: [{packageOptionId}] }`
+- `DELETE /{orderId}/items/{itemId}` — eliminar artículo (mínimo 1 artículo, PendienteCobro) **(Administrador/Empleado)**
 - `PATCH /{id}/status` — cambiar estado entrega `{ estado: 0|1|2 }`
 - `PATCH /{id}/payment-status` — cambiar estado cobro `{ estadoCobro: 0|1 }`
 - `GET /summary/daily` — resumen diario **(solo Administrador)**
 
 **Vajilla** `api/tableware`
-- `GET /pending` — vajilla pendiente de recuperar (autenticado)
-- `GET /order/{orderId}` — vajilla registrada para un pedido específico
-- `POST /` — registrar vajilla entregada `{ orderId, itemType, quantityDelivered }` (solo clientes Externo)
-- `PATCH /order/{orderId}/recover` — registrar recuperación `{ quantityRecovered }` (acumulativa) **(solo Administrador)**
+- `GET /pending` — vajilla pendiente de recuperar
+- `GET /order/{orderId}` — vajilla de un pedido específico
+- `POST /` — registrar vajilla entregada `{ orderId, itemType, quantityDelivered }`
+- `PATCH /order/{orderId}/recover` — registrar recuperación `{ quantityRecovered }` **(solo Administrador)**
 
 **Auth** `api/auth`
-- `POST /login` — `{ username, password }` → `{ token, role, username, restaurantId }` + cookie httpOnly `refreshToken`
-- `POST /refresh` — usa cookie `refreshToken` → `{ token, role, username, restaurantId }` + nueva cookie (rotación)
+- `POST /login` — `{ username, password }` → `{ token, role, username, restaurantId }` + cookie httpOnly
+- `POST /refresh` — usa cookie → `{ token, role, username, restaurantId }` + nueva cookie (rotación)
 - `POST /logout` — revoca el refresh token y elimina la cookie
 
 ---
@@ -295,103 +371,32 @@ DailySummaryDto {
 
 | Capa | Plataforma | Estado |
 |---|---|---|
-| Frontend | Vercel | ✅ Desplegado — `vercel.json` con rewrites para React Router |
-| Backend | Railway | ✅ Desplegado — Dockerfile en raíz, variables de entorno configuradas |
-| Base de datos | Railway PostgreSQL | ✅ Provisionada — `MigrateAsync` + seeder corren al arrancar |
-| Backups | Backblaze B2 + GitHub Actions | ✅ Backup diario 9 AM UTC (3 AM CDMX) → bucket `restaurant-backups` |
+| Frontend | Vercel | ✅ — `vercel.json` con rewrites para React Router |
+| Backend | Railway | ✅ — Dockerfile en raíz, variables de entorno configuradas |
+| Base de datos | Railway PostgreSQL | ✅ — Hobby plan, `MigrateAsync` + seeder al arrancar |
+| Backups | Backblaze B2 + GitHub Actions | ✅ — diario 9 AM UTC (3 AM CDMX), retención 30 días |
 
 ### Variables de entorno en Railway (backend)
 | Variable | Descripción |
 |---|---|
 | `ConnectionStrings__DefaultConnection` | Connection string Npgsql de PostgreSQL en Railway |
 | `Jwt__Key` | Clave secreta para firmar JWT |
-| `Jwt__Issuer` | Issuer del JWT (`RestaurantOrderAPI`) |
-| `Jwt__Audience` | Audience del JWT (`RestaurantOrderApp`) |
+| `Jwt__Issuer` | `RestaurantOrderAPI` |
+| `Jwt__Audience` | `RestaurantOrderApp` |
 | `Cors__AllowedOrigins__0` | URL del frontend en Vercel |
 
 ### Arranque en Railway
 1. Docker build con `Dockerfile` en raíz
 2. `await db.Database.MigrateAsync()` — aplica migraciones pendientes
-3. `await DbSeeder.SeedAsync(db)` — crea restaurante, usuarios y menú si no existen
+3. `await DbSeeder.SeedAsync(db)` — crea/sincroniza restaurante, usuarios y menú si no existen
+   - El seeder sincroniza `PasswordHash` y `Role` en cada arranque — útil para resetear passwords sin tocar la BD
 
-### Backup automático (GitHub Actions — `.github/workflows/backup.yml` en RestaurantOrderAPI)
-- Schedule: `cron '0 9 * * *'` (9 AM UTC = 3 AM CDMX, UTC-6 fijo)
-- `pg_dump $PGURL --no-password | gzip` con `PGSSLMODE=require` (Railway requiere SSL)
-- Sube a Backblaze B2 vía AWS CLI S3-compatible: `--endpoint-url https://s3.us-east-005.backblazeb2.com`, región `us-east-005`
-- Credenciales: `AWS_ACCESS_KEY_ID=$B2_KEY_ID`, `AWS_SECRET_ACCESS_KEY=$B2_APPLICATION_KEY`
-- Retención: elimina archivos con >30 días (extrae fecha del nombre `backup-YYYY-MM-DD...`)
-- Fallo → crea GitHub Issue (email automático al owner); rotación con `continue-on-error: true`
-- Secrets en GitHub: `PGURL` (Railway `DATABASE_URL` público), `B2_KEY_ID`, `B2_APPLICATION_KEY`, `B2_BUCKET_NAME`, `B2_ENDPOINT`
-- `PGURL` ≠ `ConnectionStrings__DefaultConnection` (ese es formato .NET); usar `DATABASE_URL` del servicio PostgreSQL en Railway
-- Para probar: Actions → Daily Database Backup → Run workflow (workflow_dispatch)
-
-### Seguridad del repo (auditado 2026-05-23)
-- `appsettings.Development.json` — gitignoreado (`appsettings.*.json`)
-- `.env` del frontend — gitignoreado y removido del tracking
-- `appsettings.json` base — solo placeholders, commiteado sin secretos
-- `node_modules/` y `FrontendRestaurant/` removidos de la raíz del backend
-
----
-
-## Decisiones técnicas relevantes
-
-- `TotalACobrar` en resumen solo suma pedidos con `PaymentStatus = PendienteCobro`.
-- `POST /orders/{id}/items` acumula cantidad si el artículo ya existe en el pedido. La validación usa `PaymentStatus != PendienteCobro` (no `Status != Pending`) — permite agregar artículos a pedidos ya Entregados mientras no se hayan cobrado. Si el pedido estaba `Delivered`, vuelve a `Pending` para que cocina lo vea con los artículos nuevos.
-- Las mesas no tienen botón eliminar en la UI — son fixtures permanentes.
-- El seeder usa `IgnoreQueryFilters()` para no fallar durante el arranque (antes del login).
-- Buscadores de clientes, pedidos y platillos filtran en memoria (sin llamadas extra al backend).
-- Los precios son `decimal` con `HasPrecision(10,2)` → `numeric(10,2)` en PostgreSQL. Aplica a `MenuItem.Price`, `OrderDetail.UnitPrice`, `OrderDetail.Subtotal`, `Order.Total`.
-- Rutas `/menu` y `/resumen` protegidas con `<ProtectedRoute role="Administrador">` en frontend Y `[Authorize(Roles = "Administrador")]` en backend.
-- Confirmación de eliminar es inline en la tarjeta (sin modal) — optimizado para móvil.
-- Multi-tenancy: `Restaurant` es la raíz de todo. `OrderService` y `MenuItemService` inyectan `ICurrentRestaurantService` para asignar `RestaurantId`.
-- `appsettings.Development.json` gitignoreado — nunca commitear passwords al repo.
-- Control de vajilla solo aplica a clientes tipo `Externo` — Domicilio usa desechables, Mesa no necesita recuperación.
-- Access token JWT vive solo en memoria (`tokenStore.ts`) — elimina vector XSS de localStorage.
-- `tokenStore` es un módulo puente (get/set/register) que evita el import circular entre `client.ts` y `AuthContext.tsx`.
-- `isAuthenticated` se basa en `role` (localStorage) y no en el token, para que el estado de sesión sobreviva reloads mientras el interceptor renueva el token silenciosamente.
-- Refresh token: cookie `httpOnly; SameSite=Strict; Secure` (en HTTPS). Expira en 7 días. Se rota en cada uso — un token solo es válido una vez.
-- `OrderResponseDto` incluye `TipoCliente` para que el frontend distinga pedidos Externo sin consulta adicional.
-- **Bug corregido 2026-05-17:** `ClientService` no inyectaba `ICurrentRestaurantService` → `RestaurantId` llegaba vacío → FK violation 500. Fix: inyectar igual que `OrderService` y `MenuItemService`. **Regla:** todo servicio que crea entidades con `RestaurantId` DEBE inyectar `ICurrentRestaurantService`. Verificado al 2026-05-21: `OrderService`, `MenuItemService`, `ClientService` y `TablewareService` lo inyectan correctamente.
-- Al marcar Entregado en `OrdersPage`: si `tipoCliente === 'Externo'` se abre un modal de vajilla; para Mesa/Domicilio se entrega directamente.
-- La recuperación de vajilla es acumulativa — se puede llamar varias veces hasta agotar `QuantityDelivered`.
-- Roles renombrados 2026-05-21: `"Dueño"` → `"Administrador"`, `"Mesero"` → `"Empleado"`. El seeder detecta roles legacy al arrancar y los migra automáticamente — no requiere tocar la BD manualmente.
-- Navbar muestra solo el rol en naranja (no el username) — evita exponer nombres de usuario técnicos como "dueno".
-- **Bug corregido 2026-05-22:** `GetDailySummaryAsync` usaba `startDate.Date` que produce `DateTime` con `Kind = Unspecified`. Npgsql rechaza comparar ese tipo contra columnas `timestamp with time zone` → excepción 500 en `GET /summary/daily`. Fix: `DateTime.SpecifyKind(startDate.Date, DateTimeKind.Utc)`. Regla general: toda fecha que entre al repositorio como parámetro de query debe tener `Kind = Utc` explícito.
-- **Pantalla de cocina (2026-05-22):** `GET /api/orders` requiere autenticación (`[Authorize]`). La tableta de cocina usa el rol `"Cocina"` (usuario: cocina/cocina123). `useCocinaOrders` usa `getOrders` (interceptor JWT) con `select` para filtrar Pendientes. El beep usa Web Audio API; Chrome requiere clic antes de `AudioContext` → botón "Activar sonido". Sesión dura 7 días (refresh token) — la tableta no necesita re-login frecuente.
-- Pantalla de cocina usa rol dedicado `"Cocina"` (cocina/cocina123) — nunca `[AllowAnonymous]` ni passthrough de `RestaurantId`. La tableta hace login una vez; el refresh token dura 7 días.
-- `CocinaPage` tiene dos estados: `CocinaLogin` (si `role !== 'Cocina'`) y `CocinaScreen` (si `role === 'Cocina'`). Intento de acceso con otro rol hace logout automático.
-- **Seeder (2026-05-25):** el `foreach` de usuarios siempre sincroniza `PasswordHash` y `Role` en el `else` branch — garantiza que las credenciales en BD coincidan con el código en cada arranque. Útil para resetear passwords en producción sin tocar la BD manualmente.
-- **Login inputs (2026-05-25):** `LoginPage` y `CocinaLogin` usan `autoCapitalize="none"`, `autoCorrect="off"` y `onChange` que convierte el username a lowercase. Evita que móviles autocapitalicen y causen errores de autenticación.
-- **Deploy (2026-05-25):** Backend en Railway con Dockerfile, Frontend en Vercel con `vercel.json`. El seeder crea/sincroniza los 3 usuarios en cada arranque. SHA-256 de `"admin123"` = `240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9`.
-- **Auto-refresh en mount (2026-05-29):** `AuthContext` llama a `apiRefresh()` al montar si `localStorage.role` existe pero `tokenStore` no tiene token. Esto restaura la sesión silenciosamente tras un reload sin esperar a que el interceptor falle en 401. Si el refresh falla (cookie expirada), limpia `localStorage` y fuerza logout. El `refresh()` es un export dedicado en `auth.ts` que usa `api.post` (con interceptor JWT) — no llama al endpoint directamente.
-- **isInitializing en AuthContext (2026-05-29):** resuelve race condition al recargar: sin este gate, `ProtectedRoute` y `CocinaPage` renderizan hijos antes de que el refresh silencioso complete, los hijos hacen API calls sin token, el interceptor dispara un segundo refresh concurrente que consume el token rotado y fuerza logout. `isInitializing` arranca en `true` si hay `role` en localStorage y pasa a `false` en el `.finally()` del refresh. `ProtectedRoute` y `CocinaPage` renderizan `null` mientras sea `true`.
-- **CreatedAt en OrderDetail (2026-05-30):** campo `TIMESTAMPTZ NOT NULL DEFAULT now()` en `OrderDetail`, migración `AddOrderDetailCreatedAt`. Se expone en `OrderDetailResponseDto` y en el tipo `OrderDetail` del frontend. `OrderCard` en cocina muestra `formatTime(item.createdAt)` por artículo (no `order.fechaPedido`) — cada artículo muestra la hora en que se agregó al pedido, no la hora del pedido.
-- **DELETE /orders/{orderId}/items/{itemId} (2026-05-30):** elimina un `OrderDetail` específico y recalcula `Total`. Validaciones: `PaymentStatus == PendienteCobro`, artículo pertenece al pedido, queda al menos 1 artículo. Roles: Administrador y Empleado. En `OrdersPage`, botón X por artículo visible cuando `estadoCobro !== 'Cobrado' && estado !== 'Cancelado' && articulos.length > 1`.
-- **Vajilla acumula al re-entregar (2026-05-29):** `TablewareService.RegisterAsync` detecta registro existente y hace `QuantityDelivered += dto.QuantityDelivered` + `UpdateAsync` en lugar de lanzar excepción. Cubre el flujo: Externo entregado con vajilla → artículos nuevos regresan a Pending → segunda entrega abre modal de vajilla de nuevo.
-- **Soft delete universal (2026-06-01):** `Client`, `MenuItem` y `Order` implementan `ISoftDeletable` (`IsDeleted bool`, `DeletedAt DateTime?`). Los query filters EF Core fusionan `RestaurantId` + `!IsDeleted` en una sola llamada a `HasQueryFilter` (EF Core no admite dos). `ClientService.DeleteAsync` y `MenuItemService.DeleteAsync` hacen soft delete (marcan `IsDeleted = true`, no llaman a `_context.Remove`). `Order` tiene los campos pero no hay endpoint de delete de orden — solo `Cancelled` via status.
-- **AuditLog + AuditInterceptor (2026-06-01):** `AuditLog` (tabla `uuid` PK generado en app) captura Created/Modified/SoftDeleted/Deleted para todas las entidades salvo `AuditLog` misma. `AuditInterceptor : SaveChangesInterceptor` es Scoped; se registra con el factory overload de `AddDbContext` (`sp.GetRequiredService<AuditInterceptor>()`). Agrega entradas al contexto en `SavingChangesAsync` antes de llamar a `base` — se guardan en la misma transacción. Login fallido se audita manualmente en `AuthController` vía `IAuditService.LogAsync` (no pasa por `SaveChanges` normal). `AuditService` está en `Infrastructure/Services/`.
-- **ICurrentUserService (2026-06-01):** interfaz en `Application/Common/Interfaces/`; implementación `CurrentUserService` en `API/Services/` (junto a `CurrentRestaurantService`) — Infrastructure no tiene `Microsoft.NET.Sdk.Web` y no puede usar `IHttpContextAccessor` sin un FrameworkReference extra. Lee `ClaimTypes.NameIdentifier` para `UserId` y `ClaimTypes.Name` para `Username`.
-- **JWT claims (2026-06-01):** `JwtTokenService.GenerateToken` ahora emite `ClaimTypes.NameIdentifier = userId`. `ITokenService.GenerateToken` tiene firma `(username, role, restaurantId, userId)`. `AuthService.BuildAuthResult` pasa `user.Id`.
-- **Índices compuestos (2026-06-01):** migración `Phase0_SoftDelete_AuditLog_Precision_Indexes`. Orders: (RestaurantId,OrderDate), (RestaurantId,Status,IsDeleted), (RestaurantId,PaymentStatus,IsDeleted), (RestaurantId,ClientId). Clients: (RestaurantId,IsDeleted,IsActive), (RestaurantId,Tipo). MenuItems: (RestaurantId,IsDeleted,IsAvailable). AuditLogs: (RestaurantId,OccurredAt), (EntityName,EntityId).
-- **Serilog + Health check (2026-06-01):** `Serilog.AspNetCore` 10.0.0 + `Serilog.Sinks.Seq` 9.1.0 + `AspNetCore.HealthChecks.NpgSql` 9.0.0. Bootstrap logger captura errores de arranque; configuración completa desde appsettings vía `ReadFrom.Configuration`. Desarrollo: consola en texto (`outputTemplate`). Producción: `CompactJsonFormatter` JSON + sink Seq. `appsettings.Development.json` sobrescribe solo el array `WriteTo` (arrays en config.json se reemplazan, no se fusionan). Peticiones a `/health` se loguean a `Debug` para no contaminar Seq. `GET /health` → 200/503 JSON `{status, checks[]}`, sin autenticación, endpoint mapped con `.AllowAnonymous()`. **Nota BetterStack:** `Serilog.Sinks.BetterStack` no existe en NuGet — alternativa más simple es Railway Drain → BetterStack (captura stdout JSON sin código adicional). Variables Railway: `Serilog__WriteTo__1__Args__serverUrl` y `Serilog__WriteTo__1__Args__apiKey`.
-- **Bug corregido 2026-06-01 — refresh token 401 en producción (cross-site cookie):** Tres causas encadenadas: (1) `SameSite=Strict` bloqueaba la cookie en requests Vercel→Railway (`vercel.app` ≠ `railway.app`). Fix: `Request.IsHttps ? SameSite=None : SameSite=Lax` en `SetRefreshCookie`/`DeleteRefreshCookie`. (2) Railway termina TLS en el proxy y reenvía HTTP al contenedor — `Request.IsHttps = false` dentro del contenedor → cookie con `Secure=false` → `SameSite=None` requiere `Secure=true`. Fix: `UseForwardedHeaders` con `KnownIPNetworks.Clear()` + `KnownProxies.Clear()` como PRIMER middleware del pipeline. (3) `RefreshTokenRepository.GetByTokenAsync` no usaba `IgnoreQueryFilters()` — el `Include(rt => rt.User)` aplicaba el filtro global de User (`u.RestaurantId == 0` sin JWT activo) vía INNER JOIN, haciendo que `FirstOrDefaultAsync` devolviera null. Fix: agregar `IgnoreQueryFilters()` igual que `UserRepository.GetByUsernameAsync`. (4) El navegador URL-codifica `=`, `+`, `/` en el Cookie header pero `Request.Cookies` no URL-decodifica. Fix: `Uri.UnescapeDataString(raw)` en `AuthController.Refresh` antes del lookup en BD. **Regla:** toda consulta que corre sin JWT activo (login, refresh, seeder) DEBE usar `IgnoreQueryFilters()`.
-- **trim() en username del login (2026-06-01):** `LoginPage` y `CocinaLogin` aplican `.trim()` en el `onChange` del input. `AuthService.LoginAsync` hace `request.Username.Trim()` antes del lookup en BD. Doble protección: frontend nunca acumula espacios, backend también limpia.
-- **Notes por artículo en OrderDetail (2026-06-02):** `OrderDetail.Notes VARCHAR(300)` nullable. `CreateOrderDetailDto.Notas = null` (default — sin breaking change en callers existentes). `OrderDetailResponseDto` expone `Notas`. `OrderService` persiste nota al crear y al agregar artículos nuevos; artículos acumulados conservan su nota original. Migración: `AddOrderDetailNotes` (solo `AddColumn`, expand-contract). Frontend: input de nota en `AddItemsModal` cuando cantidad > 0, se limpia al bajar a cero; nota en gris itálico en tarjeta de `OrdersPage`; nota en **amarillo** en `OrderCard` de cocina (info crítica para preparación). El campo `Notes` en `Order` sigue siendo la nota general del pedido — diferente al nuevo campo de nota por artículo.
-- **Filtro de fechas en OrdersPage (2026-06-02):** Selector Desde/Hasta con mismo estilo visual que `DailySummaryPage`. Default = hoy (calculado en timezone `America/Mexico_City`). Filtro en memoria sobre `fechaPedido`: convierte UTC → fecha local MX con `Intl.DateTimeFormat('en-CA', { timeZone: 'America/Mexico_City' })` para comparar. Persiste al cambiar entre tabs Pendientes/Todos. Botón "Hoy" aparece solo cuando el rango difiere del día actual.
-- **Bug corregido 2026-06-03 — build de Vercel bloqueado por TS2769:** `getOrders(date?: string)` tiene parámetro opcional. Al pasarse como `queryFn: getOrders` directamente en `useQuery`, React Query lo invoca con `QueryFunctionContext` como primer arg → TypeScript error `TS2769` en `Layout.tsx` y `OrdersPage.tsx` → Vercel abortaba el build silenciosamente y seguía sirviendo el bundle viejo. Fix: envolver en arrow `queryFn: () => getOrders()` donde no se necesita fecha. **Regla:** nunca pasar como `queryFn` una función con parámetros opcionales directamente — siempre envolver en arrow para que TS no la trate como `QueryFunction`.
-- **Bug corregido 2026-06-03 — cocina mostraba pedidos de días anteriores:** `GET /api/orders` devolvía todos los pedidos sin filtro de fecha. Tres síntomas: (1) `CocinaPage` mostraba Pending históricos. (2) Badge del navbar contaba pendientes de todos los días. (3) Un pedido sin artículos se renderizaba vacío. Fixes: **Backend** — `IOrderRepository/IOrderService.GetAllAsync(DateTime? date = null)`: si se envía `?date=YYYY-MM-DD`, filtra al día indicado con ventana UTC-6 fija (`date.Date.AddHours(6)` → `+24h`), mismo offset que `GetDailySummaryAsync`. Sin `?date` el comportamiento es idéntico al anterior (OrdersPage sin cambio). **Frontend** — `useCocinaOrders` envía `?date=<hoy MX>` en cada poll de 15s y filtra `articulos.length > 0` para omitir pedidos vacíos. **Layout badge** filtra en memoria por fecha MX al computar `pendingCount`. `getOrders(date?: string)` acepta el parámetro opcional. Sin migración.
-- **Polling automático en OrdersPage para Empleado (2026-06-06):** `refetchInterval: role === 'Empleado' ? 10_000 : false` en el `useQuery` de `OrdersPage`. Solo activo para Empleado — el Administrador no lo necesita. React Query refrescan en background sin cambiar el query key `['orders']`, por lo que `fromDate`/`toDate` (filtro en memoria) y el estado de modales no se resetean en cada poll.
-- **Rol Empleado restringido en ClientsPage (2026-06-03):** `isAdmin = role === 'Administrador'`. Empleado no ve el tab switcher, ni buscador, ni botón "Nuevo cliente". `visibles = (!isAdmin || tab === 'mesas') ? mesas : clientesFiltrados` — Empleado recibe siempre solo mesas. Administrador ve todo sin cambios.
-- **Cocina marca pedido como Entregado (2026-06-06):** `OrderCard` tiene X visible en la esquina superior derecha. Al tocar: aparece confirmación al fondo de la tarjeta ("¿Marcar como listo?" + Confirmar / Cancelar). Confirmar llama `PATCH /api/orders/{id}/status` con `estado: 1` e invalida `['cocina-orders']` → la tarjeta desaparece inmediatamente sin esperar el poll de 15s. Si el request falla: mensaje de error en la tarjeta, el pedido no desaparece. `OrderCard` usa `useMutation` + `useQueryClient` internamente (componente auto-contenido).
-- **Botón Entregar eliminado de OrdersPage (2026-06-06):** Cocina es el único punto para marcar Entregado. En la sección Pendiente de `OrdersPage` solo quedan "Agregar artículos" y "Cancelar". `TablewareModal` simplificado: ya no llama `changeOrderStatus` (la orden ya está Entregada cuando se abre el modal). Solo registra vajilla con `POST /tableware`. En la sección Entregado+PendienteCobro aparece botón "Vajilla" (solo para `tipoCliente === 'Externo'`) que abre el modal directamente — permite al Administrador registrar vajilla sin necesitar el botón Entregar. Pedidos Mesa/Domicilio Entregados no tienen botón Vajilla.
-- **Módulo Paquetes con Opciones Dinámicas — Paso 1 (schema + dominio, 2026-06-12):** Enum `MenuItemKind { ALaCarta, Package }` en `Domain/Enums/`. `MenuItem` recibe `ItemKind` (string VARCHAR(30), default `'ALaCarta'`) y `ToGoSurcharge DECIMAL(10,2)`. Tres entidades nuevas con Guid PK y `ValueGeneratedNever()`: `PackageGroup` (constructor valida `MaxSelections >= MinSelections`; `ValidateSelectionCount` lanza `DomainException` en español; colección `_options` expuesta como `IReadOnlyCollection` con `UsePropertyAccessMode(Field)`), `PackageOption` (`IsAvailableToday = !isDailyRotating` en constructor; `Update()` resetea `IsAvailableToday` al cambiar `IsDailyRotating`), `OrderDetailSelection` (constructor congela `option.Name` y `option.ExtraPrice` en snapshots inmutables). Servicio de dominio estático `PackagePricing.CalculateLineTotal`. Tres `IEntityTypeConfiguration` en `Infrastructure/Persistence/Configurations/`. **Query filters en `AppDbContext.OnModelCreating`** (no en las config classes) — la lambda debe capturar `this._currentRestaurant` del DbContext para re-evaluación per-request; si viviera en la instancia de configuración (construida una vez al inicio) el `RestaurantId` quedaría congelado. `DomainException` mapeada a HTTP 422 en `ExceptionMiddleware`. `SCHEMA.md` creado en raíz del repo. Migraciones: `AddPackageOptions` + script idempotente.
-- **Módulo Paquetes con Opciones Dinámicas — Paso 2 (CRUD admin, 2026-06-12):** 12 endpoints bajo `/api/packages` con `[Authorize(Roles = "Administrador")]`. `IPackageService` + `PackageService` en Application (no MediatR — el proyecto usa IService+Service). Repositorios `IPackageGroupRepository` / `IPackageOptionRepository` en `IUnitOfWork`. `PackageDtos.cs` con DTOs en español para request y en inglés para response (convención del proyecto). Validaciones: paquete con pedidos activos (Pending/Delivered) no puede hacer soft delete (`HasActiveOrdersAsync` vía `_context.Orders`); grupo con opciones activas no puede borrarse. Endpoint PUT `/options/availability` actualiza `IsAvailableToday` en lote — silencia opciones con `IsDailyRotating = false` sin contarlas. GET `/options/availability` = "pantalla menú del día".
-- **Módulo Paquetes con Opciones Dinámicas — Paso 3 (flujo mesero, 2026-06-12):** Campo `IsToGo BOOLEAN DEFAULT false` en `OrderDetails` (migración `AddIsToGoToOrderDetail`). Vive en `OrderDetail` (no `Order`) porque un pedido puede mezclar ítems para comer y para llevar. Nuevo endpoint `POST /api/orders/{orderId}/details` **coexiste** con `POST /api/orders/{id}/items` (el viejo sigue para ALaCarta en lote). Ruta ALaCarta: crea `OrderDetail` directo; valida que `selections` esté vacío. Ruta Paquete: valida grupos por `SortOrder`, delega `ValidateSelectionCount` al dominio, verifica `IsAvailableToday` de cada opción, calcula `UnitPrice = basePrice + Σ(ExtraPrice) + (IsToGo ? ToGoSurcharge : 0)` manualmente antes de persistir. Persistencia en una transacción: `order.OrderDetails.Add(detail)` marca `detail` como Added (PK int=0); `detail.Selections.Add(sel)` marca `sel` como Added (EF auto-trackea al añadir a colección de entidad tracked); `UpdateAsync(order)` respeta estados ya asignados; EF Core hace FK-fixup `OrderDetailId` después del INSERT del parent antes de insertar las selections. `OrderDetailResponseDto` recibe `IsToGo = false` como default para no romper callers existentes. Respuesta del endpoint: `OrderDetailDto` con `OrderDetailSelectionDto[]` mapeado desde objetos en memoria post-save (no requiere reload).
-- **Módulo Paquetes con Opciones Dinámicas — Paso 4 (frontend mesero, 2026-06-12):** `src/api/packages.ts` — `getPackages`, `getDailyAvailability`, `updateDailyAvailability`. `addOrderDetail(orderId, request)` en `orders.ts`. Tipos nuevos en `types/index.ts`: `PackageDto` (id: number — int del MenuItem), `PackageGroupDto`/`PackageOptionDto` (id: string — Guid), `AddOrderDetailRequest`, `SelectionRequest`, `OrderDetailDto`, `DailyOptionDto`. **Detección de paquetes sin cambiar `MenuItemResponseDto`:** ambas pantallas hacen `useQuery(['packages'])` y construyen `Map<number, PackageDto>`; si el ítem aparece en el mapa se renderiza diferente. **`PackageSelectionModal`** (z-60, sobre AddItemsModal z-50): precio en tiempo real (`basePrice + Σ extraPrice + toGoSurcharge`), validación `minSelections` por grupo, toggle "Para llevar" visible solo si `toGoSurcharge > 0`, selección única vs múltiple según `maxSelections`/`allowExtra`, error inline. Al confirmar: `POST /api/orders/{orderId}/details`, invalida `['orders']`, llama `onSuccess()`. **`AddItemsModal`** detecta paquetes vía `packageMap`: ítems ALaCarta conservan +/- counters, ítems Package muestran badge "Paquete" + botón "Configurar" que abre `PackageSelectionModal` apilado. **`NewOrderPage`**: paquetes se detectan y muestran con badge informativo; no se pueden agregar hasta crear la orden (requieren `orderId`) — el flujo es crear orden con ítems a la carta → agregar paquetes desde OrdersPage. **`DailyMenuPage`** (`/menu-dia`, solo Administrador): lista rotativas agrupadas por paquete/grupo, toggles de disponibilidad, botón "Guardar cambios" con conteo de pendientes. **Bug corregido — `AddItemsAsync` usaba `order.Total += precio * cantidad` (incremento)**; corregido a `order.Total = order.OrderDetails.Sum(d => d.Subtotal)` (suma completa), igual que `AddOrderDetailAsync` y `RemoveItemAsync`. Regla: `Order.Total` siempre se recalcula como suma de Subtotales, nunca como incremento.
-- **Campo toGoSurcharge en formulario de menú (2026-06-12):** `MenuPage.tsx` — campo "Recargo para llevar (opcional · solo aplica a paquetes)" agregado al modal de crear/editar platillo. Estado `recargo` (string, como `precio`); vacío → envía `0`. `toGoSurcharge?: number` añadido a `MenuItem`, `CreateMenuItemDto` y `UpdateMenuItemDto` en `types/index.ts`. El toggle de disponibilidad incluye `toGoSurcharge: item.toGoSurcharge ?? 0` para no sobreescribir el valor existente al activar/desactivar. El campo se pre-carga al editar si el ítem ya tiene valor.
-- **Módulo Paquetes con Opciones Dinámicas — Paso 5 (cocina, 2026-06-12):** `OrderCard` renderiza label diferenciado detrás de feature flag. `OrderDetail` en `types/index.ts` recibe `selections?: OrderDetailSelectionDto[]`. `AuthContext` añade `featureFlags: { packageOptions: boolean }` al estado; `parseFeatureFlags(token)` decodifica el payload JWT base64 buscando claim `featureFlags`; si no está → `{ packageOptions: false }` (comportamiento idéntico al actual). La flag se extrae en login, refresh silencioso y tokenStore.register (se actualiza al rotar token). `buildKitchenLabel(item)` en `OrderCard.tsx`: si `selections` no vacío → `"NombreArticulo — opcion1, opcion2"`; si `isToGo` → badge `🥡 Para llevar` inline junto al nombre. Con `packageOptions=false`: render 100% idéntico al anterior. Activar: ejecutar el SQL de la sección "Módulo PackageOptions" en Railway — el claim se emite desde ese mismo arranque (implementado 2026-06-15).
-- **Claim featureFlags en JWT (2026-06-15):** `Restaurant.FeatureFlags` es un campo `string` (jsonb en PostgreSQL, `NOT NULL DEFAULT '{}'`, migración `AddRestaurantFeatureFlags`). `ITokenService.GenerateToken` recibe `string featureFlags` como 5° parámetro; `JwtTokenService` lo emite como `new Claim("featureFlags", featureFlags)`. `AuthService.BuildAuthResult` obtiene el valor vía eager-load: `UserRepository.GetByUsernameAsync` hace `.Include(u => u.Restaurant)` y `RefreshTokenRepository.GetByTokenAsync` hace `.ThenInclude(u => u.Restaurant)` — sin repositorios nuevos. Fallback `user.Restaurant?.FeatureFlags ?? "{}"` cubre el caso (teórico) de Restaurant no cargado. El frontend ya tenía `parseFeatureFlags(token)` implementado en `AuthContext`; si el claim no existe devuelve `{ packageOptions: false }`.
-- **Bug corregido 2026-05-31 — totalCobrado en resumen diario:** `GetDailySummaryAsync` en `OrderRepository` tenía dos problemas: (1) **Timezone**: rango UTC iniciaba a medianoche UTC = 6pm hora local Mexico City; pedidos del turno tarde/noche quedaban fuera del rango. Fix: desplazar 6h → `start = startDate.Date.AddHours(6)` (UTC-6 fijo desde que Mexico City eliminó DST en 2023). (2) **Carry-over Cobrado**: condición 2 solo incluía `PendienteCobro`; al marcar un pedido de un día anterior como `Cobrado` (común en domicilios que pagan después), dejaba de ser `PendienteCobro` y ya no estaba en rango de fechas → desaparecía del resumen sin sumar en `totalCobrado`. Fix: condición 2 ahora incluye **todos los pedidos no cancelados de los últimos 7 días anteriores al rango** sin filtrar por `PaymentStatus`. Ventana de 7 días cubre domicilios que pagan con días de retraso.
+### Backup automático
+- Schedule: `cron '0 9 * * *'` (9 AM UTC = 3 AM CDMX)
+- `pg_dump $PGURL --no-password | gzip` con `PGSSLMODE=require`
+- Sube a Backblaze B2 vía AWS CLI S3-compatible
+- Fallo → crea GitHub Issue automático
+- Para probar: Actions → Daily Database Backup → Run workflow
 
 ---
 
@@ -399,16 +404,16 @@ DailySummaryDto {
 
 Paquetes con opciones dinámicas (comida corrida, desayunos).
 
-**Activar para El Arca de Adán:**
+**Activar para El Arca de Adán** (requiere primero implementar claim featureFlags en JWT):
 ```sql
-UPDATE "Restaurants"
+UPDATE "Restaurant"
 SET "FeatureFlags" = '{"packageOptions": true}'
 WHERE "Name" = 'El Arca de Adán';
 ```
 
 **Desactivar (rollback inmediato sin redeploy):**
 ```sql
-UPDATE "Restaurants"
+UPDATE "Restaurant"
 SET "FeatureFlags" = '{}'
 WHERE "Name" = 'El Arca de Adán';
 ```
@@ -419,8 +424,63 @@ no desde NewOrderPage (requieren orderId existente).
 **Menú del día:** Admin configura opciones rotativas en /menu-dia cada mañana.
 Opciones fijas (IsDailyRotating=false) siempre disponibles sin configuración.
 
-**Feature flag en JWT:** `Restaurant.FeatureFlags` (jsonb, columna en BD desde 2026-06-15)
-se emite como claim `featureFlags` en el JWT al hacer login o refresh. El frontend lee el claim
-con `parseFeatureFlags(token)` en `AuthContext`. Sin claim o con false → cocina idéntica al
-comportamiento anterior. El cambio de BD surte efecto en el siguiente login o refresh silencioso
-(máx. 15 min sin acción manual).
+---
+
+## Decisiones técnicas relevantes
+
+- `TotalACobrar` en resumen solo suma pedidos con `PaymentStatus = PendienteCobro`.
+- `POST /orders/{id}/items` acumula cantidad si el artículo ya existe en el pedido. Validación usa `PaymentStatus != PendienteCobro` — permite agregar artículos a pedidos ya Entregados mientras no se hayan cobrado. Si el pedido estaba `Delivered`, vuelve a `Pending`.
+- Las mesas no tienen botón eliminar en la UI — son fixtures permanentes.
+- El seeder usa `IgnoreQueryFilters()` para no fallar durante el arranque.
+- Buscadores de clientes, pedidos y platillos filtran en memoria (sin llamadas extra al backend).
+- Precios: `decimal` con `HasPrecision(10,2)` → `numeric(10,2)` en PostgreSQL.
+- Rutas `/menu`, `/menu-dia` y `/resumen` protegidas con `<ProtectedRoute role="Administrador">` en frontend Y `[Authorize(Roles = "Administrador")]` en backend.
+- Confirmación de eliminar es inline en la tarjeta (sin modal) — optimizado para móvil.
+- `Order.Total` siempre se recalcula como `SUM(OrderDetail.Subtotal)` — **nunca como incremento**.
+- Control de vajilla solo aplica a clientes tipo `Externo`.
+- Access token JWT vive solo en memoria (`tokenStore.ts`) — elimina vector XSS de localStorage.
+- `tokenStore` es un módulo puente (get/set/register) que evita import circular entre `client.ts` y `AuthContext.tsx`.
+- `isAuthenticated` se basa en `role` (localStorage) para que el estado de sesión sobreviva reloads mientras el interceptor renueva el token silenciosamente.
+- Refresh token: cookie `httpOnly; SameSite=None; Secure` (cross-site Vercel→Railway). Expira en 7 días. Rota en cada uso.
+- `OrderResponseDto` incluye `TipoCliente` para que el frontend distinga pedidos Externo sin consulta adicional.
+- **Regla crítica:** todo servicio que crea entidades con `RestaurantId` DEBE inyectar `ICurrentRestaurantService`. Verificado: `OrderService`, `MenuItemService`, `ClientService`, `TablewareService`, `PackageService`.
+- Al marcar Entregado en `OrdersPage`: si `tipoCliente === 'Externo'` se abre modal de vajilla; para Mesa/Domicilio se entrega directamente. **Nota:** el botón Entregar fue eliminado de OrdersPage — ahora solo Cocina puede marcar Entregado.
+- La recuperación de vajilla es acumulativa — se puede llamar varias veces hasta agotar `QuantityDelivered`.
+- Roles renombrados 2026-05-21: `"Dueño"` → `"Administrador"`, `"Mesero"` → `"Empleado"`. El seeder detecta roles legacy y los migra automáticamente.
+- **Bug resuelto 2026-05-22:** `GetDailySummaryAsync` usaba `startDate.Date` con `Kind = Unspecified`. Fix: `DateTime.SpecifyKind(startDate.Date, DateTimeKind.Utc)`. Regla: toda fecha en queries debe tener `Kind = Utc` explícito.
+- Pantalla de cocina usa rol dedicado `"Cocina"` — nunca `[AllowAnonymous]`. La tableta hace login una vez; el refresh token dura 7 días.
+- **Bug resuelto 2026-06-01 — refresh token en producción:** (1) `SameSite=Strict` bloqueaba cookie cross-site → fix: `SameSite=None` en HTTPS. (2) Railway reenvía HTTP al contenedor → `Request.IsHttps = false` → fix: `UseForwardedHeaders()` como primer middleware. (3) `RefreshTokenRepository` necesitaba `IgnoreQueryFilters()` en include de User. (4) Browser URL-codifica la cookie → fix: `Uri.UnescapeDataString()` antes del lookup. **Regla:** toda consulta sin JWT activo DEBE usar `IgnoreQueryFilters()`.
+- **Bug resuelto 2026-06-03 — TS2769 en Vercel:** nunca pasar función con parámetros opcionales como `queryFn` directo — siempre envolver en arrow `() => getOrders()`.
+- **Bug resuelto 2026-05-31 — resumen diario:** timezone UTC-6 fijo (`startDate.Date.AddHours(6)`) + carry-over Cobrado de los últimos 7 días.
+- `PackageGroup.Id`, `PackageOption.Id`, `OrderDetailSelection.Id`: Guid con `ValueGeneratedNever()` — generado en app, no en BD.
+- `OrderDetailSelection`: snapshots inmutables — `OptionNameSnapshot` y `ExtraPriceSnapshot` se congelan al crear el pedido y no se actualizan si cambia la opción después.
+- EF Core FK-fixup: `order.OrderDetails.Add(detail)` + `detail.Selections.Add(sel)` → EF asigna `OrderDetailId` automáticamente después del INSERT del parent.
+- **Regla:** no dos llamadas a `HasQueryFilter` sobre la misma entidad en EF Core — fusionar en una sola lambda.
+- Query filters deben vivir en `AppDbContext.OnModelCreating` (no en las config classes) — la lambda captura `this._currentRestaurant` del DbContext para re-evaluación per-request.
+
+---
+
+## Sesión 2026-06-15 — Correcciones adicionales
+
+### Fix Dockerfile — libgssapi-krb5-2
+El contenedor Docker en Railway crasheaba con `Cannot load library libgssapi_krb5.so.2`.
+Fix: agregar en el stage de runtime del Dockerfile:
+```
+RUN apt-get update && apt-get install -y libgssapi-krb5-2 && rm -rf /var/lib/apt/lists/*
+```
+
+### Regla crítica — Migraciones EF Core
+**Nunca escribir `Designer.cs` de migraciones a mano.** El snapshot del modelo debe
+ser generado por EF Core con `dotnet ef migrations add`. Un snapshot incorrecto causa
+`PendingModelChangesWarning` al arrancar → crash del backend en producción.
+
+### Nombre real de tablas en PostgreSQL
+EF Core pluraliza los nombres de tabla. La tabla es `"Restaurants"` (no `"Restaurant"`),
+`"Orders"` (no `"Order"`), etc. Usar siempre el nombre plural con comillas dobles en
+queries manuales de Railway SQL Editor.
+
+### Procedimiento para migraciones manuales en Railway
+Si `MigrateAsync` no puede correr (backend crashea), aplicar manualmente:
+1. `ALTER TABLE` en SQL Editor de Railway
+2. `INSERT INTO "__EFMigrationsHistory"` con el MigrationId y ProductVersion correctos
+3. Si se reemplaza una migración, hacer `DELETE` del registro viejo antes del `INSERT` nuevo
