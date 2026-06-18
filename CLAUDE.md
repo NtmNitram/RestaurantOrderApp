@@ -2,7 +2,7 @@
 
 > Archivo de referencia para sesiones de desarrollo con Claude.
 > No modificar manualmente.
-> Última actualización: 2026-06-15
+> Última actualización: 2026-06-17
 
 ---
 
@@ -99,7 +99,7 @@ RestaurantOrderAPI/src/
 | Decimal precision `HasPrecision(10,2)` | ✅ |
 | Backup diario Backblaze B2 (GitHub Actions) | ✅ |
 | Secrets en Railway — nunca en repo | ✅ |
-| **Rate limiting** (login: 5 req/min por IP) | ❌ pendiente |
+| **Rate limiting** (login: 5 req/min por IP) | ✅ |
 | **Sentry** (captura de excepciones no manejadas) | ❌ pendiente |
 | **UptimeRobot** (ping a `/health` cada 5 min) | ❌ pendiente |
 | Tests de integración multi-tenant (5+ casos) | ❌ pendiente |
