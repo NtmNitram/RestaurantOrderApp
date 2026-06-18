@@ -161,8 +161,8 @@ RestaurantOrderAPI/src/
 
 ### Pendiente de implementar
 
-- [ ] **Claim `featureFlags` en JWT** — backend debe leer `Restaurant.FeatureFlags` y emitirlo en el token al hacer login/refresh. Sin esto el flag siempre es `false` aunque la BD esté actualizada.
-- [ ] **Activar PackageOptions para El Arca de Adán** (después del claim): `UPDATE "Restaurant" SET "FeatureFlags" = '{"packageOptions": true}' WHERE "Name" = 'El Arca de Adán'`
+- [x] **Claim `featureFlags` en JWT** — backend ya lo emite; fix en frontend: `parseFeatureFlags` ahora parsea el claim como string antes de leerlo como objeto. Link en Layout.tsx a `/menu-dia` también agregado condicionado a `featureFlags.packageOptions`.
+- [ ] **Activar PackageOptions para El Arca de Adán**: `UPDATE "Restaurants" SET "FeatureFlags" = '{"packageOptions": true}' WHERE "Name" = 'El Arca de Adán'`
 - [ ] **DeliveryRound** — entidad, estados Open/Closed, FK nullable en Order (solo Externo)
 - [ ] Pantalla del vendedor: lista de pedidos de ronda activa, cobro + recuperación en batch
 - [ ] Cierre de ronda con validación de pedidos sin cobrar

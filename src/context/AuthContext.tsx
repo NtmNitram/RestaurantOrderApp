@@ -8,7 +8,9 @@ function parseFeatureFlags(token: string | null): { packageOptions: boolean } {
     const payload = token.split('.')[1]
     const decoded = atob(payload.replace(/-/g, '+').replace(/_/g, '/'))
     const claims = JSON.parse(decoded) as Record<string, unknown>
-    const ff = claims['featureFlags']
+    const raw = claims['featureFlags']
+    // El claim JWT llega siempre como string — hay que parsearlo.
+    const ff = typeof raw === 'string' ? JSON.parse(raw) : raw
     if (ff && typeof ff === 'object') {
       return { packageOptions: !!((ff as Record<string, unknown>)['packageOptions']) }
     }

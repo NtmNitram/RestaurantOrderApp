@@ -1,12 +1,12 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { UtensilsCrossed, Users, ClipboardList, BarChart3, LogOut, BookOpen, Archive } from 'lucide-react'
+import { UtensilsCrossed, Users, ClipboardList, BarChart3, LogOut, BookOpen, Archive, CalendarDays } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '../context/AuthContext'
 import { getOrders } from '../api/orders'
 import { getPendingTableware } from '../api/tableware'
 
 export default function Layout() {
-  const { role, logout } = useAuth()
+  const { role, logout, featureFlags } = useAuth()
   const navigate = useNavigate()
   const isAdmin = role === 'Administrador'
 
@@ -32,6 +32,9 @@ export default function Layout() {
     { to: '/vajilla', label: 'Vajilla', icon: <Archive className="w-5 h-5" />, badge: vajillaCount },
     ...(isAdmin ? [
       { to: '/menu', label: 'Menú', icon: <BookOpen className="w-5 h-5" /> },
+      ...(featureFlags.packageOptions ? [
+        { to: '/menu-dia', label: 'Menú Día', icon: <CalendarDays className="w-5 h-5" /> },
+      ] : []),
       { to: '/resumen', label: 'Resumen', icon: <BarChart3 className="w-5 h-5" /> },
     ] : []),
   ]
