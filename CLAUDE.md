@@ -100,7 +100,7 @@ RestaurantOrderAPI/src/
 | Backup diario Backblaze B2 (GitHub Actions) | ✅ |
 | Secrets en Railway — nunca en repo | ✅ |
 | **Rate limiting** (login: 5 req/min por IP) | ✅ |
-| **Sentry** (captura de excepciones no manejadas) | ❌ pendiente |
+| **Sentry** (captura de excepciones no manejadas) | ✅ |
 | **UptimeRobot** (ping a `/health` cada 5 min) | ❌ pendiente |
 | Tests de integración multi-tenant (5+ casos) | ❌ pendiente |
 | Entorno de staging en Railway separado | ❌ pendiente |
