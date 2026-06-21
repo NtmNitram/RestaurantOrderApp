@@ -2,7 +2,7 @@
 
 > Archivo de referencia para sesiones de desarrollo con Claude.
 > No modificar manualmente.
-> Última actualización: 2026-06-17
+> Última actualización: 2026-06-20
 
 ---
 
@@ -326,7 +326,7 @@ Id, Name, IsActive, FeatureFlags JSONB (default '{}')
 **Órdenes** `api/orders`
 - `GET /` — pedidos del día — roles: Administrador, Empleado, Cocina
 - `GET /?date=YYYY-MM-DD` — pedidos de una fecha específica (ventana UTC-6)
-- `POST /` — crear pedido `{ clienteId, notas?, articulos: [{articuloId, cantidad, notas?}] }`
+- `POST /` — crear pedido `{ clienteId, notas?, articulos: [{articuloId, cantidad, notas?}] }`. Rechaza con `422` si algún artículo tiene `ItemKind = "Package"` — los paquetes solo se agregan vía `POST /{orderId}/details` (requiere `orderId` existente, ver flujo mesero).
 - `POST /{id}/items` — agregar artículos ALaCarta en lote (válido mientras PendienteCobro)
 - `POST /{orderId}/details` — agregar artículo individual con selecciones de paquete `{ menuItemId, quantity, isToGo, notas?, selections: [{packageOptionId}] }`
 - `DELETE /{orderId}/items/{itemId}` — eliminar artículo (mínimo 1 artículo, PendienteCobro) **(Administrador/Empleado)**
@@ -344,6 +344,10 @@ Id, Name, IsActive, FeatureFlags JSONB (default '{}')
 - `POST /login` — `{ username, password }` → `{ token, role, username, restaurantId }` + cookie httpOnly
 - `POST /refresh` — usa cookie → `{ token, role, username, restaurantId }` + nueva cookie (rotación)
 - `POST /logout` — revoca el refresh token y elimina la cookie
+
+### Swagger
+- Disponible en la raíz del dominio (`RoutePrefix = ""`) — no en `/swagger`.
+- JWT Bearer configurado en Swagger UI: botón "Authorize", pegar el access token (sin prefijo `Bearer`, lo agrega Swagger automáticamente).
 
 ---
 
@@ -457,6 +461,7 @@ Opciones fijas (IsDailyRotating=false) siempre disponibles sin configuración.
 - EF Core FK-fixup: `order.OrderDetails.Add(detail)` + `detail.Selections.Add(sel)` → EF asigna `OrderDetailId` automáticamente después del INSERT del parent.
 - **Regla:** no dos llamadas a `HasQueryFilter` sobre la misma entidad en EF Core — fusionar en una sola lambda.
 - Query filters deben vivir en `AppDbContext.OnModelCreating` (no en las config classes) — la lambda captura `this._currentRestaurant` del DbContext para re-evaluación per-request.
+- **Guardrail:** `POST /api/orders` rechaza con `422` cualquier artículo con `ItemKind = "Package"` — evita paquetes mal formados sin selecciones. Los paquetes solo se agregan después de creado el pedido vía `POST /{orderId}/details`.
 
 ---
 
@@ -484,3 +489,17 @@ Si `MigrateAsync` no puede correr (backend crashea), aplicar manualmente:
 1. `ALTER TABLE` en SQL Editor de Railway
 2. `INSERT INTO "__EFMigrationsHistory"` con el MigrationId y ProductVersion correctos
 3. Si se reemplaza una migración, hacer `DELETE` del registro viejo antes del `INSERT` nuevo
+
+---
+
+## Sesión 2026-06-20 — Guardrail de pedidos y Swagger
+
+### Guardrail — paquetes en creación de pedido
+`POST /api/orders` ahora rechaza con `422` si algún artículo enviado tiene `ItemKind = "Package"`.
+Los paquetes requieren selecciones (`OrderDetailSelection`) y solo pueden agregarse a un pedido
+ya existente vía `POST /{orderId}/details` — ver [Endpoints del backend](#endpoints-del-backend)
+y [Módulo PackageOptions](#módulo-packageoptions-completado-2026-06-12).
+
+### Swagger UI
+- Configurado JWT Bearer en Swagger: botón "Authorize" acepta el access token directamente.
+- `RoutePrefix = ""` — Swagger UI vive en la raíz del dominio del backend, no en `/swagger`.
