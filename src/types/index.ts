@@ -83,10 +83,18 @@ export interface UpdateMenuItemDto {
 }
 
 // Lo que se manda al crear un pedido
+export interface CreateOrderDetailDto {
+  articuloId: number
+  cantidad: number
+  notas?: string
+  isToGo?: boolean
+  selecciones?: SelectionRequest[]
+}
+
 export interface CreateOrderDto {
   clienteId: number
   notas: string
-  articulos: { articuloId: number; cantidad: number }[]
+  articulos: CreateOrderDetailDto[]
 }
 
 export interface Tableware {
@@ -151,7 +159,6 @@ export interface PackageDto {
   groups: PackageGroupDto[]
 }
 
-// Request para POST /api/orders/{orderId}/details
 export interface SelectionRequest {
   groupId: string
   optionId: string

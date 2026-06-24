@@ -5,7 +5,22 @@ import { getMenuItems } from '../api/menuItems'
 import { getClients } from '../api/clients'
 import { createOrder } from '../api/orders'
 import { getPackages } from '../api/packages'
-import { ArrowLeft, Plus, Minus, ShoppingBag, Search, Package } from 'lucide-react'
+import PackageSelectionForm from '../components/orders/PackageSelectionForm'
+import type { PackageDto, SelectionRequest } from '../types'
+import { ArrowLeft, Plus, Minus, ShoppingBag, Search, Package, X, Truck } from 'lucide-react'
+
+const safeNum = (n: number | undefined | null): number => (Number.isFinite(n) ? (n as number) : 0)
+
+interface ConfiguredPackage {
+  tempId: string          // crypto.randomUUID() — key de React y para poder borrar
+  menuItemId: number
+  nombre: string          // para mostrar en el carrito
+  basePrice: number       // pkg.price, para el estimado
+  isToGo: boolean
+  notes?: string
+  selections: SelectionRequest[]
+  estimatedExtra: number  // suma de extraPrice de las opciones elegidas, para el estimado
+}
 
 export default function NewOrderPage() {
   const { clientId } = useParams<{ clientId: string }>()
@@ -15,14 +30,58 @@ export default function NewOrderPage() {
   const [items, setItems] = useState<Record<number, number>>({})
   const [notas, setNotas] = useState('')
   const [busqueda, setBusqueda] = useState('')
+  const [configuredPackages, setConfiguredPackages] = useState<ConfiguredPackage[]>([])
+  const [packageForForm, setPackageForForm] = useState<PackageDto | null>(null)
 
   const { data: clients } = useQuery({ queryKey: ['clients'], queryFn: getClients })
   const { data: menuItems, isLoading } = useQuery({ queryKey: ['menuItems'], queryFn: getMenuItems })
   const { data: packages } = useQuery({ queryKey: ['packages'], queryFn: getPackages })
 
-  const packageIds = useMemo(() => new Set(packages?.map(p => p.id) ?? []), [packages])
+  const packageMap = useMemo(() => {
+    const m = new Map<number, PackageDto>()
+    packages?.forEach(p => m.set(p.id, p))
+    return m
+  }, [packages])
 
   const client = clients?.find(c => c.id === Number(clientId))
+
+  const describeSelections = (cfg: ConfiguredPackage): string => {
+    const pkg = packageMap.get(cfg.menuItemId)
+    if (!pkg) return ''
+    const sortedGroups = [...pkg.groups].sort((a, b) => a.sortOrder - b.sortOrder)
+    return sortedGroups
+      .flatMap(g => cfg.selections
+        .filter(sel => sel.groupId === g.id)
+        .map(sel => g.options.find(o => o.id === sel.optionId)?.name)
+      )
+      .filter((name): name is string => Boolean(name))
+      .join(', ')
+  }
+
+  const handlePackageConfirm = (data: {
+    menuItemId: number
+    isToGo: boolean
+    notes?: string
+    selections: SelectionRequest[]
+  }) => {
+    if (!packageForForm) return
+    const estimatedExtra = data.selections.reduce((sum, sel) => {
+      const group = packageForForm.groups.find(g => g.id === sel.groupId)
+      const option = group?.options.find(o => o.id === sel.optionId)
+      return sum + (option?.extraPrice ?? 0)
+    }, 0)
+    setConfiguredPackages(prev => [...prev, {
+      tempId: crypto.randomUUID(),
+      menuItemId: data.menuItemId,
+      nombre: packageForForm.name,
+      basePrice: packageForForm.price,
+      isToGo: data.isToGo,
+      notes: data.notes,
+      selections: data.selections,
+      estimatedExtra,
+    }])
+    setPackageForForm(null)
+  }
 
   const mutation = useMutation({
     mutationFn: createOrder,
@@ -46,22 +105,37 @@ export default function NewOrderPage() {
   }
 
   const handleSubmit = () => {
-    const articulos = Object.entries(items).map(([id, qty]) => ({
+    const articulosALaCarte = Object.entries(items).map(([id, qty]) => ({
       articuloId: Number(id),
       cantidad: qty,
     }))
+    const articulosPaquetes = configuredPackages.map(cfg => ({
+      articuloId: cfg.menuItemId,
+      cantidad: 1,
+      isToGo: cfg.isToGo,
+      notas: cfg.notes,
+      selecciones: cfg.selections,
+    }))
+    const articulos = [...articulosALaCarte, ...articulosPaquetes]
     if (articulos.length === 0) return
     mutation.mutate({ clienteId: Number(clientId), notas, articulos })
   }
 
-  const total = menuItems
+  const aLaCarteTotal = menuItems
     ? Object.entries(items).reduce((sum, [id, qty]) => {
         const item = menuItems.find(m => m.id === Number(id))
-        return sum + (item?.precio ?? 0) * qty
+        return sum + safeNum(item?.precio) * qty
       }, 0)
     : 0
 
-  const cantidadItems = Object.values(items).reduce((a, b) => a + b, 0)
+  const paquetesTotal = configuredPackages.reduce(
+    (sum, cfg) => sum + safeNum(cfg.basePrice) + safeNum(cfg.estimatedExtra),
+    0
+  )
+
+  const totalEstimado = aLaCarteTotal + paquetesTotal
+
+  const cantidadItems = Object.values(items).reduce((a, b) => a + b, 0) + configuredPackages.length
 
   if (isLoading) return (
     <div className="flex items-center justify-center py-20 text-gray-400">
@@ -71,6 +145,15 @@ export default function NewOrderPage() {
 
   return (
     <div>
+      {packageForForm && (
+        <PackageSelectionForm
+          pkg={packageForForm}
+          onConfirm={handlePackageConfirm}
+          onCancel={() => setPackageForForm(null)}
+          confirmLabel="Agregar al carrito"
+        />
+      )}
+
       <button
         onClick={() => navigate(-1)}
         className="flex items-center gap-1.5 text-gray-500 hover:text-gray-800 text-sm mb-5 transition-colors"
@@ -101,9 +184,9 @@ export default function NewOrderPage() {
 
       <div className="grid gap-3 mb-4">
         {menuItems?.filter(m => m.disponible && m.nombre.toLowerCase().includes(busqueda.toLowerCase())).map(item => {
-          const isPkg = packageIds.has(item.id)
+          const pkg = packageMap.get(item.id)
 
-          if (isPkg) {
+          if (pkg) {
             return (
               <div
                 key={item.id}
@@ -118,10 +201,13 @@ export default function NewOrderPage() {
                     </span>
                   </div>
                   <p className="text-sm text-orange-600 font-medium mt-0.5">${item.precio.toFixed(2)}</p>
-                  <p className="text-[11px] text-gray-400 mt-1">
-                    Se configura desde Pedidos → Agregar artículos
-                  </p>
                 </div>
+                <button
+                  onClick={() => setPackageForForm(pkg)}
+                  className="flex-shrink-0 text-sm bg-orange-500 text-white px-4 py-2 rounded-lg font-medium hover:bg-orange-600 transition-colors"
+                >
+                  Configurar
+                </button>
               </div>
             )
           }
@@ -156,6 +242,42 @@ export default function NewOrderPage() {
         })}
       </div>
 
+      {configuredPackages.length > 0 && (
+        <div className="mb-4 space-y-2">
+          <p className="text-sm font-semibold text-gray-700">Paquetes agregados</p>
+          {configuredPackages.map(cfg => {
+            const detalle = describeSelections(cfg)
+            const precioEstimado = safeNum(cfg.basePrice) + safeNum(cfg.estimatedExtra)
+            return (
+              <div
+                key={cfg.tempId}
+                className="bg-orange-50 border border-orange-100 rounded-xl p-3 flex items-start justify-between gap-3"
+              >
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-gray-800 text-sm truncate">{cfg.nombre}</p>
+                  {detalle && <p className="text-xs text-gray-500 mt-0.5">{detalle}</p>}
+                  <div className="flex items-center gap-2 mt-1">
+                    {cfg.isToGo && (
+                      <span className="flex items-center gap-0.5 text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-medium">
+                        <Truck className="w-2.5 h-2.5" />
+                        Para llevar
+                      </span>
+                    )}
+                    <span className="text-sm text-orange-600 font-medium">${precioEstimado.toFixed(2)}</span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setConfiguredPackages(prev => prev.filter(p => p.tempId !== cfg.tempId))}
+                  className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
       <textarea
         value={notas}
         onChange={e => setNotas(e.target.value)}
@@ -167,7 +289,8 @@ export default function NewOrderPage() {
       <div className="bg-white rounded-xl border border-gray-200 p-4 flex items-center justify-between">
         <div>
           <p className="text-sm text-gray-500">{cantidadItems} artículo(s)</p>
-          <p className="text-xl font-bold text-gray-800">${total.toFixed(2)}</p>
+          <p className="text-[11px] text-gray-400 uppercase tracking-wide">Total estimado</p>
+          <p className="text-xl font-bold text-gray-800">${totalEstimado.toFixed(2)}</p>
         </div>
         <button
           onClick={handleSubmit}
