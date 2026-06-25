@@ -5,6 +5,20 @@ import type { Order, OrderDetail } from '../../types'
 import { changeOrderStatus } from '../../api/orders'
 import { useAuth } from '../../context/AuthContext'
 
+const NEW_ITEM_THRESHOLD_MS = 2 * 60 * 1000
+
+function getNewItemIds(articulos: OrderDetail[]): Set<number> {
+  const timestamps = articulos.map(item => new Date(item.createdAt).getTime())
+  const minCreatedAt = Math.min(...timestamps)
+  const newIds = new Set<number>()
+  articulos.forEach((item, i) => {
+    if (timestamps[i] - minCreatedAt > NEW_ITEM_THRESHOLD_MS) {
+      newIds.add(item.id)
+    }
+  })
+  return newIds
+}
+
 function formatTime(isoDate: string): string {
   return new Intl.DateTimeFormat('es-MX', {
     hour: '2-digit',
@@ -29,6 +43,7 @@ export default function OrderCard({ order, isLatest }: Props) {
   const queryClient = useQueryClient()
   const [confirming, setConfirming] = useState(false)
   const { featureFlags } = useAuth()
+  const newItemIds = getNewItemIds(order.articulos)
 
   const mutation = useMutation({
     mutationFn: () => changeOrderStatus(order.id, 1),
@@ -64,25 +79,30 @@ export default function OrderCard({ order, isLatest }: Props) {
       </div>
 
       <ul className="space-y-2 border-t border-gray-700 pt-3">
-        {order.articulos.map(item => (
-          <li key={item.id}>
-            <div className="flex items-baseline gap-2">
-              <span className="text-orange-300 font-bold text-lg leading-none w-6 text-right flex-shrink-0">
-                {item.cantidad}×
-              </span>
-              <span className="text-white text-base leading-snug flex-1">
-                {featureFlags.packageOptions ? buildKitchenLabel(item) : item.nombreArticulo}
-                {featureFlags.packageOptions && item.isToGo && (
-                  <span className="ml-2 text-yellow-300 text-xs">🥡 Para llevar</span>
-                )}
-              </span>
-              <span className="text-gray-500 text-xs flex-shrink-0">{formatTime(item.createdAt)}</span>
-            </div>
-            {item.notas && (
-              <p className="text-sm text-yellow-200 italic ml-8 mt-0.5">{item.notas}</p>
-            )}
-          </li>
-        ))}
+        {order.articulos.map(item => {
+          const isNewItem = newItemIds.has(item.id)
+          return (
+            <li key={item.id}>
+              <div className={`flex items-baseline gap-2 rounded-lg px-2 py-1 -mx-2 ${
+                isNewItem ? 'bg-yellow-900/30 border-l-2 border-yellow-500' : ''
+              }`}>
+                <span className="text-orange-300 font-bold text-lg leading-none w-6 text-right flex-shrink-0">
+                  {item.cantidad}×
+                </span>
+                <span className={`text-base leading-snug flex-1 ${isNewItem ? 'text-yellow-200' : 'text-white'}`}>
+                  {featureFlags.packageOptions ? buildKitchenLabel(item) : item.nombreArticulo}
+                  {featureFlags.packageOptions && item.isToGo && (
+                    <span className="ml-2 text-yellow-300 text-xs">🥡 Para llevar</span>
+                  )}
+                </span>
+                <span className="text-gray-500 text-xs flex-shrink-0">{formatTime(item.createdAt)}</span>
+              </div>
+              {item.notas && (
+                <p className="text-sm text-yellow-200 italic ml-8 mt-0.5">{item.notas}</p>
+              )}
+            </li>
+          )
+        })}
       </ul>
 
       {order.notas && (
