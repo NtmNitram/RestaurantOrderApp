@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { UtensilsCrossed, Volume2, VolumeX } from 'lucide-react'
 import { useCocinaOrders } from '../hooks/useCocinaOrders'
 import OrderCard from '../components/cocina/OrderCard'
 import { useAuth } from '../context/AuthContext'
+import type { Order } from '../types'
 
 // ── Login minimalista ──────────────────────────────────────────────────────
 function CocinaLogin() {
@@ -127,6 +128,28 @@ function CocinaScreen() {
 
   const count = orders?.length ?? 0
 
+  // Resalta el pedido más reciente de cada cliente, pero solo cuando ese
+  // cliente tiene 2+ pedidos pendientes a la vez (con uno solo no hay nada
+  // que distinguir).
+  const latestByClient = useMemo(() => {
+    if (!orders) return new Set<number>()
+    return new Set(
+      Object.values(
+        orders.reduce<Record<number, { order: Order; count: number }>>((acc, order) => {
+          const prev = acc[order.clienteId]
+          const isNewer = !prev || new Date(order.fechaPedido) > new Date(prev.order.fechaPedido)
+          acc[order.clienteId] = {
+            order: isNewer ? order : prev.order,
+            count: (prev?.count ?? 0) + 1,
+          }
+          return acc
+        }, {})
+      )
+        .filter(({ count }) => count >= 2)
+        .map(({ order }) => order.id)
+    )
+  }, [orders])
+
   return (
     <div
       className="min-h-screen bg-gray-950 text-white px-4 py-5 transition-colors duration-300"
@@ -171,7 +194,7 @@ function CocinaScreen() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {orders!.map(order => (
-              <OrderCard key={order.id} order={order} />
+              <OrderCard key={order.id} order={order} isLatest={latestByClient.has(order.id)} />
             ))}
           </div>
         )}

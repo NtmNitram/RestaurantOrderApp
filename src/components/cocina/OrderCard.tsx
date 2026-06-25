@@ -20,7 +20,12 @@ function buildKitchenLabel(item: OrderDetail): string {
   return `${item.nombreArticulo} — ${opciones}`
 }
 
-export default function OrderCard({ order }: { order: Order }) {
+interface Props {
+  order: Order
+  isLatest?: boolean
+}
+
+export default function OrderCard({ order, isLatest }: Props) {
   const queryClient = useQueryClient()
   const [confirming, setConfirming] = useState(false)
   const { featureFlags } = useAuth()
@@ -33,7 +38,9 @@ export default function OrderCard({ order }: { order: Order }) {
   })
 
   return (
-    <div className="bg-gray-800 border border-gray-700 rounded-2xl p-5 flex flex-col gap-3">
+    <div className={`rounded-2xl p-5 flex flex-col gap-3 border ${
+      isLatest ? 'bg-yellow-900/10 border-yellow-500/60' : 'bg-gray-800 border-gray-700'
+    }`}>
       <div className="flex items-start justify-between">
         <div>
           <p className="text-xl font-bold text-white leading-tight">{order.nombreCliente}</p>
