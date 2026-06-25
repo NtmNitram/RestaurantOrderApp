@@ -503,3 +503,63 @@ y [Módulo PackageOptions](#módulo-packageoptions-completado-2026-06-12).
 ### Swagger UI
 - Configurado JWT Bearer en Swagger: botón "Authorize" acepta el access token directamente.
 - `RoutePrefix = ""` — Swagger UI vive en la raíz del dominio del backend, no en `/swagger`.
+
+---
+
+## Módulo PackageOptions — actualización 2026-06-23
+
+**Flujo mesero (actualizado):** los paquetes ahora se pueden configurar en DOS puntos:
+1. **NewOrderPage** (`/nuevo-pedido/:clientId`) — al crear el pedido desde cero. Cada
+   paquete configurado es una entrada independiente en estado local
+   (`configuredPackages`), separada del carrito à la carte (`Record<number, number>`).
+   N corridos = N entradas (no se usa `quantity` > 1 para paquetes).
+2. **OrdersPage → Agregar artículos** — flujo legado, para agregar un paquete a un
+   pedido ya existente (`PackageSelectionModal`, requiere `orderId`).
+
+Ambos comparten el mismo componente de selección de grupos/opciones:
+`src/components/orders/PackageSelectionForm.tsx` — UI pura (selección,
+validación Min/Max, filtro `isAvailableToday`, toggle "Para llevar", nota),
+sin conocimiento de API ni de `orderId`. Recibe `onConfirm`/`onCancel` y los
+props opcionales `isSubmitting`/`error` para que el llamador refleje el estado
+de su propia mutación.
+- `PackageSelectionModal.tsx` envuelve el form con la mutación `addOrderDetail`
+  (flujo legado, requiere `orderId` existente).
+- `NewOrderPage.tsx` envuelve el form sin mutación — solo acumula la entrada en
+  `configuredPackages` (estado local), hasta el submit del pedido completo.
+
+**Total estimado vs. autoritativo:** en `NewOrderPage`, el total mostrado
+(`totalEstimado = aLaCarteTotal + paquetesTotal`) es un cálculo de frontend
+(suma de precios base + `extraPrice` de las opciones elegidas) y se etiqueta
+explícitamente como "Total estimado" — nunca como "Total" a secas. El total
+real lo calcula el backend (`SUM(OrderDetail.Subtotal)`) y viene en la
+respuesta de `POST /api/orders`; el frontend no lo muestra como definitivo
+porque tras crear el pedido navega directo a `/pedidos`.
+
+**Payload unificado:** `POST /api/orders` ahora puede incluir, en el mismo
+array `articulos`, ítems à la carte (`{articuloId, cantidad}`) y paquetes
+(`{articuloId, cantidad: 1, isToGo, notas, selecciones}`) en una sola llamada
+a `createOrder`. Mismo casing (camelCase) que el resto del payload — no hay
+transformación de Axios, el backend de .NET hace bind case-insensitive.
+
+`CreateOrderDetailDto` (en `types/index.ts`) ahora tiene `notas?`, `isToGo?`,
+`selecciones?: SelectionRequest[]` opcionales — compatible con el payload
+viejo de solo à la carte.
+
+---
+
+## Fix cocina — selecciones visibles y resaltado de pedido reciente (2026-06-24)
+
+### Selecciones en pantalla de cocina
+- OrderRepository.GetAllAsync y GetByIdWithDetailsAsync ahora incluyen
+  .Include(o => o.OrderDetails).ThenInclude(d => d.Selections)
+  .ThenInclude(s => s.PackageGroup) — necesario porque no hay lazy loading.
+- OrderDetailResponseDto extendido con Selections opcional (get; init).
+- MapToResponse mapea snapshots reales; à la carte queda null.
+- Frontend (OrderCard/buildKitchenLabel) ya estaba listo — sin cambios.
+
+### Resaltado de pedido más reciente por cliente en cocina
+- CocinaPage calcula latestByClient (Set<number>) con reduce en un paso
+  (acumula {order, count}); solo marca isLatest cuando count >= 2.
+- OrderCard acepta isLatest?: boolean; intercambia set completo de clases
+  bg/border (bg-yellow-900/10 border-yellow-500/60 vs bg-gray-800
+  border-gray-700) para evitar conflicto de utilidades bg-* en Tailwind.
