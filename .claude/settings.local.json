@@ -58,7 +58,10 @@
       "Bash(git log *)",
       "Bash(git fetch *)",
       "Bash(Get-ChildItem \"C:\\\\Users\\\\Martin\\\\Desktop\\\\repos\\\\RestaurantOrderAPI\\\\src\\\\RestaurantOrderAPI.Infrastructure\" -Recurse -Name)",
-      "Bash(Sort-Object)"
+      "Bash(Sort-Object)",
+      "Bash(git checkout *)",
+      "Bash(git merge *)",
+      "PowerShell(git *)"
     ]
   }
 }
