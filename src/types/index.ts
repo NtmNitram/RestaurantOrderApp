@@ -19,6 +19,7 @@ export interface MenuItem {
   precio: number
   disponible: boolean
   toGoSurcharge?: number
+  hasActivePackageGroups: boolean
 }
 
 export interface OrderDetail {

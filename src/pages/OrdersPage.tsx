@@ -282,7 +282,6 @@ function TablewareModal({ order, onClose }: { order: Order; onClose: () => void 
 
 export default function OrdersPage() {
   const { role } = useAuth()
-  const [tab, setTab] = useState<'pendientes' | 'todos'>('pendientes')
   const [busqueda, setBusqueda] = useState('')
   const [fromDate, setFromDate] = useState(todayMX)
   const [toDate, setToDate] = useState(todayMX)
@@ -341,7 +340,7 @@ export default function OrdersPage() {
         o.referenciaCliente?.toLowerCase().includes(q))
     : lista
 
-  const base = tab === 'pendientes' ? pendientes : (orders ?? [])
+  const base = pendientes
   const visibles = filtrarTexto(filtrarFecha(base))
 
   return (
@@ -402,39 +401,11 @@ export default function OrdersPage() {
         )}
       </div>
 
-      <div className="flex gap-1 bg-gray-200 p-1 rounded-lg mb-5">
-        <button
-          onClick={() => setTab('pendientes')}
-          className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-md text-sm font-medium transition-colors ${
-            tab === 'pendientes' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          Pendientes
-          {pendientes.length > 0 && (
-            <span className="bg-orange-500 text-white text-[10px] min-w-[16px] h-4 px-1 rounded-full flex items-center justify-center font-bold leading-none">
-              {pendientes.length}
-            </span>
-          )}
-        </button>
-        <button
-          onClick={() => setTab('todos')}
-          className={`flex-1 py-2 rounded-md text-sm font-medium transition-colors ${
-            tab === 'todos' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          Todos ({orders?.length ?? 0})
-        </button>
-      </div>
-
       {visibles.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
           <CheckCircle className="w-12 h-12 mx-auto mb-3 text-green-300" />
-          <p className="text-lg font-medium">
-            {tab === 'pendientes' ? 'Todo al día' : 'Sin pedidos'}
-          </p>
-          <p className="text-sm mt-1">
-            {tab === 'pendientes' ? 'No hay pedidos pendientes' : 'No hay pedidos en este rango de fechas'}
-          </p>
+          <p className="text-lg font-medium">Todo al día</p>
+          <p className="text-sm mt-1">No hay pedidos pendientes</p>
         </div>
       ) : (
         <div className="grid gap-3">

@@ -187,11 +187,16 @@ export default function MenuPage() {
             className={`bg-white rounded-xl border p-4 transition-opacity ${!item.disponible ? 'opacity-50 border-gray-200' : 'border-gray-200'}`}
           >
             {confirmDeleteId === item.id ? (
-              <div className="flex items-center justify-between">
-                <p className="text-sm text-gray-700 font-medium">
+              <div>
+                <p className="text-sm text-gray-700 font-medium mb-2">
                   ¿Eliminar <span className="text-red-600">{item.nombre}</span>?
                 </p>
-                <div className="flex gap-2">
+                {item.hasActivePackageGroups && (
+                  <p className="text-xs text-amber-600 mb-2">
+                    ⚠️ Este platillo tiene grupos de opciones configurados. Al eliminarlo dejarán de estar disponibles.
+                  </p>
+                )}
+                <div className="flex gap-2 justify-end">
                   <button
                     onClick={() => setConfirmDeleteId(null)}
                     className="px-3 py-1.5 rounded-lg border border-gray-300 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
