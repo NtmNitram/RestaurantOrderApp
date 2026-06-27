@@ -8,14 +8,6 @@
 
 ### 🔴 Pendientes de definición con cliente
 
-**[CLIENTE] Activar PackageOptions (Almuerzo Corrido)**
-- Confirmar con el cliente que el flujo inline en `NewOrderPage` es suficiente
-- Una vez confirmado, ejecutar en Railway SQL Editor:
-  ```sql
-  UPDATE "Restaurants" SET "FeatureFlags" = '{"packageOptions": true}' WHERE "Name" = 'El Arca de Adán';
-  ```
-- Rollback inmediato sin redeploy: `UPDATE "Restaurants" SET "FeatureFlags" = '{}' ...`
-
 **[CLIENTE] Decisión IsToGo / ToGoSurcharge**
 - Opciones: (A) activar el campo ya implementado en la UI actual, o (B) diferir a sistema de modificadores en Fase 2
 - Impacto si se activa ahora: requiere definir UX de cuándo/cómo el mesero marca "para llevar" por artículo
@@ -137,6 +129,7 @@
 - [x] `IsToGo` por artículo + `ToGoSurcharge` en MenuItem (implementado, pendiente decisión negocio)
 - [x] Guardrail: `POST /api/orders` rechaza `ItemKind = "Package"` con `422`
 - [x] Swagger UI con JWT Bearer en raíz del dominio
+- [x] PackageOptions activado en producción (FeatureFlags confirmado en Railway)
 
 ### Incidentes resueltos en producción
 - [x] Bug 2026-05-22: `GetDailySummaryAsync` — `DateTime.Kind = Unspecified` → fix: `DateTime.SpecifyKind(..., Utc)`
