@@ -43,9 +43,7 @@
 - Más vendidos del día / semana
 
 **[FRONTEND] PWA**
-- `manifest.json`: nombre, ícono 192x192 + 512x512, splash, `display: standalone`
-- Service Worker básico (caching de assets estáticos — no offline de datos)
-- Probar instalación en tableta Android real
+- [ ] Probar instalación en tableta Android real
 
 **[OPS] Onboarding El Arca de Adán**
 - Documento de usuario: 1 página, flujos principales (mesero, cocina, admin)
@@ -130,6 +128,7 @@
 - [x] Guardrail: `POST /api/orders` rechaza `ItemKind = "Package"` con `422`
 - [x] Swagger UI con JWT Bearer en raíz del dominio
 - [x] PackageOptions activado en producción (FeatureFlags confirmado en Railway)
+- [x] PWA: manifest, Service Worker (Workbox), ícono El Arca de Adán, título actualizado
 
 ### Incidentes resueltos en producción
 - [x] Bug 2026-05-22: `GetDailySummaryAsync` — `DateTime.Kind = Unspecified` → fix: `DateTime.SpecifyKind(..., Utc)`
