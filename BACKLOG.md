@@ -129,6 +129,9 @@
 - [x] Swagger UI con JWT Bearer en raíz del dominio
 - [x] PackageOptions activado en producción (FeatureFlags confirmado en Railway)
 - [x] PWA: manifest, Service Worker (Workbox), ícono El Arca de Adán, título actualizado
+- [x] Fix: GET /api/packages accesible a cualquier rol autenticado (antes solo Administrador, bloqueaba a Empleado tomar pedidos con paquetes)
+- [x] Aviso inline en NewOrderPage si falla la carga de paquetes (no bloquea el resto del flujo de pedido)
+- [x] Fix CORS staging: Cors__AllowedOrigins__0 tenía "ttps://" en vez de "https://" — typo corregido, staging funcional
 
 ### Incidentes resueltos en producción
 - [x] Bug 2026-05-22: `GetDailySummaryAsync` — `DateTime.Kind = Unspecified` → fix: `DateTime.SpecifyKind(..., Utc)`
