@@ -35,7 +35,7 @@ export default function NewOrderPage() {
 
   const { data: clients } = useQuery({ queryKey: ['clients'], queryFn: getClients })
   const { data: menuItems, isLoading } = useQuery({ queryKey: ['menuItems'], queryFn: getMenuItems })
-  const { data: packages } = useQuery({ queryKey: ['packages'], queryFn: getPackages })
+  const { data: packages, isError: isPackagesError } = useQuery({ queryKey: ['packages'], queryFn: getPackages })
 
   const packageMap = useMemo(() => {
     const m = new Map<number, PackageDto>()
@@ -181,6 +181,12 @@ export default function NewOrderPage() {
           className="w-full pl-9 pr-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
         />
       </div>
+
+      {isPackagesError && (
+        <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg p-3 text-sm mb-3">
+          No se pudieron cargar los paquetes (corridos). Los artículos individuales siguen disponibles. Intenta recargar la página.
+        </div>
+      )}
 
       <div className="grid gap-3 mb-4">
         {menuItems?.filter(m => m.disponible && m.nombre.toLowerCase().includes(busqueda.toLowerCase())).map(item => {
