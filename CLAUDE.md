@@ -2,7 +2,7 @@
 
 > Archivo de referencia para sesiones de desarrollo con Claude.
 > No modificar manualmente.
-> Última actualización: 2026-06-20
+> Última actualización: 2026-06-28
 
 ---
 
@@ -308,20 +308,22 @@ Id, Name, IsActive, FeatureFlags JSONB (default '{}')
 - `PUT /{id}` — actualizar **(solo Administrador)**
 - `DELETE /{id}` — soft delete **(solo Administrador)**
 
-**Paquetes** `api/packages` **(solo Administrador)**
+**Paquetes** `api/packages`
+- Lectura (`GET /`, `GET /{id}`, `GET /options/availability`): cualquier rol autenticado
+- Escritura (POST/PUT/DELETE, incluyendo grupos y opciones, y `PUT /options/availability`): **solo Administrador**
 - `GET /` — todos los paquetes con grupos y opciones
 - `GET /{id}` — paquete por ID
-- `POST /` — crear paquete
-- `PUT /{id}` — actualizar paquete
-- `DELETE /{id}` — soft delete (falla si tiene pedidos activos)
-- `POST /{id}/groups` — agregar grupo
-- `PUT /groups/{groupId}` — actualizar grupo
-- `DELETE /groups/{groupId}` — eliminar grupo (falla si tiene opciones activas)
-- `POST /groups/{groupId}/options` — agregar opción
-- `PUT /options/{optionId}` — actualizar opción
-- `DELETE /options/{optionId}` — soft delete opción
+- `POST /` — crear paquete **(Administrador)**
+- `PUT /{id}` — actualizar paquete **(Administrador)**
+- `DELETE /{id}` — soft delete (falla si tiene pedidos activos) **(Administrador)**
+- `POST /{id}/groups` — agregar grupo **(Administrador)**
+- `PUT /groups/{groupId}` — actualizar grupo **(Administrador)**
+- `DELETE /groups/{groupId}` — eliminar grupo (falla si tiene opciones activas) **(Administrador)**
+- `POST /groups/{groupId}/options` — agregar opción **(Administrador)**
+- `PUT /options/{optionId}` — actualizar opción **(Administrador)**
+- `DELETE /options/{optionId}` — soft delete opción **(Administrador)**
 - `GET /options/availability` — pantalla menú del día (opciones con IsDailyRotating=true)
-- `PUT /options/availability` — actualizar IsAvailableToday en lote
+- `PUT /options/availability` — actualizar IsAvailableToday en lote **(Administrador)**
 
 **Órdenes** `api/orders`
 - `GET /` — pedidos del día — roles: Administrador, Empleado, Cocina
@@ -388,6 +390,8 @@ DailySummaryDto {
 | `Jwt__Issuer` | `RestaurantOrderAPI` |
 | `Jwt__Audience` | `RestaurantOrderApp` |
 | `Cors__AllowedOrigins__0` | URL del frontend en Vercel |
+
+> **Nota:** `Cors__AllowedOrigins__0` debe coincidir EXACTAMENTE con el dominio fijo del frontend (incluyendo `https://`, sin slash final). Verificar tras cualquier copy/paste — un typo aquí causa fallos de CORS difíciles de diagnosticar porque el navegador no siempre distingue claramente el error en Network, solo en Console.
 
 ### Arranque en Railway
 1. Docker build con `Dockerfile` en raíz
@@ -462,6 +466,10 @@ Opciones fijas (IsDailyRotating=false) siempre disponibles sin configuración.
 - **Regla:** no dos llamadas a `HasQueryFilter` sobre la misma entidad en EF Core — fusionar en una sola lambda.
 - Query filters deben vivir en `AppDbContext.OnModelCreating` (no en las config classes) — la lambda captura `this._currentRestaurant` del DbContext para re-evaluación per-request.
 - **Guardrail:** `POST /api/orders` rechaza con `422` cualquier artículo con `ItemKind = "Package"` — evita paquetes mal formados sin selecciones. Los paquetes solo se agregan después de creado el pedido vía `POST /{orderId}/details`.
+- **Bug resuelto (Fase 1) — paquetes invisibles para Empleado:** `PackagesController` tenía `[Authorize(Roles = "Administrador")]` a nivel de clase, bloqueando también la lectura. Un Empleado no podía ver ni configurar corridos al tomar pedidos — el ítem se mostraba como à la carte normal y el submit fallaba con 422 en silencio. Fix: el atributo de rol se movió de la clase a cada método de escritura individualmente; los GET quedan abiertos a cualquier rol autenticado.
+- **Aviso de error en NewOrderPage:** si `GET /api/packages` falla por cualquier razón, se muestra un aviso inline (no bloqueante) y el mesero puede seguir tomando pedidos à la carte con normalidad.
+- **Bug resuelto — CORS en staging:** `Cors__AllowedOrigins__0` tenía un typo (`ttps://` en vez de `https://`), causando que todas las peticiones del frontend de staging fallaran con CORS error. Regla: siempre verificar el valor completo de las variables de entorno carácter por carácter, especialmente tras copiar/pegar.
+- **Toggle mostrar/ocultar contraseña en LoginPage:** botón de ojo en el campo de contraseña para verificar que se está escribiendo correctamente, especialmente útil en sesiones largas sin login donde es fácil perder de vista qué se está tecleando.
 
 ---
 
