@@ -146,6 +146,7 @@ export interface PackageGroupDto {
   minSelections: number
   maxSelections: number
   allowExtra: boolean
+  isCountingGroup: boolean
   sortOrder: number
   options: PackageOptionDto[]
 }
@@ -163,6 +164,7 @@ export interface PackageDto {
 export interface SelectionRequest {
   groupId: string
   optionId: string
+  quantity: number
 }
 
 export interface AddOrderDetailRequest {

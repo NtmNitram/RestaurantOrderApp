@@ -65,16 +65,26 @@ export default function NewOrderPage() {
     selections: SelectionRequest[]
   }) => {
     if (!packageForForm) return
+
+    // Número de corridos = suma de quantities del grupo isCountingGroup
+    const corridos = data.selections.reduce((sum, sel) => {
+      const group = packageForForm.groups.find(g => g.id === sel.groupId)
+      return group?.isCountingGroup ? sum + sel.quantity : sum
+    }, 0)
+    const baseQty = Math.max(corridos, 1)
+
+    // Extras ponderados por quantity de cada selección
     const estimatedExtra = data.selections.reduce((sum, sel) => {
       const group = packageForForm.groups.find(g => g.id === sel.groupId)
       const option = group?.options.find(o => o.id === sel.optionId)
-      return sum + (option?.extraPrice ?? 0)
+      return sum + (option?.extraPrice ?? 0) * sel.quantity
     }, 0)
+
     setConfiguredPackages(prev => [...prev, {
       tempId: crypto.randomUUID(),
       menuItemId: data.menuItemId,
       nombre: packageForForm.name,
-      basePrice: packageForForm.price,
+      basePrice: packageForForm.price * baseQty,
       isToGo: data.isToGo,
       notes: data.notes,
       selections: data.selections,

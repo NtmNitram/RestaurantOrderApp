@@ -2,7 +2,7 @@
 
 > Archivo de referencia para sesiones de desarrollo con Claude.
 > No modificar manualmente.
-> Última actualización: 2026-06-28
+> Última actualización: 2026-07-01
 
 ---
 
@@ -80,7 +80,7 @@ RestaurantOrderAPI/src/
 
 ## Estado del proyecto — Fase actual
 
-### Fase 0 — Seguridad crítica (🟡 casi completa)
+### Fase 1 — Primer cliente activo (El Arca de Adán) 🟡
 
 | Item | Estado |
 |---|---|

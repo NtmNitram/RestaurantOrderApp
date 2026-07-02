@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { X, Check, ShoppingBag, Truck } from 'lucide-react'
+import { X, ShoppingBag, Truck, Plus, Minus } from 'lucide-react'
 import type { PackageDto, PackageGroupDto, SelectionRequest } from '../../types'
 
 interface Props {
@@ -16,6 +16,9 @@ interface Props {
   error?: string | null
 }
 
+// groupId → { optionId: quantity }
+type SelectionState = Record<string, Record<string, number>>
+
 export default function PackageSelectionForm({
   pkg,
   onConfirm,
@@ -24,62 +27,102 @@ export default function PackageSelectionForm({
   isSubmitting = false,
   error = null,
 }: Props) {
-  // groupId → array de optionIds seleccionados
-  const [selections, setSelections] = useState<Record<string, string[]>>({})
+  const [selections, setSelections] = useState<SelectionState>({})
   const [isToGo, setIsToGo] = useState(false)
   const [notes, setNotes] = useState('')
 
+  // ── Helpers de cantidad ───────────────────────────────────────────────────
+
+  const getQty = (groupId: string, optionId: string): number =>
+    selections[groupId]?.[optionId] ?? 0
+
+  const incrementOption = (group: PackageGroupDto, optionId: string) => {
+    // Radio: maxSelections=1 && !allowExtra → reemplaza todo el grupo
+    if (!group.allowExtra && group.maxSelections === 1) {
+      setSelections(prev => ({ ...prev, [group.id]: { [optionId]: 1 } }))
+      return
+    }
+
+    const groupOpts = selections[group.id] ?? {}
+    const totalQty = Object.values(groupOpts).reduce((a, b) => a + b, 0)
+
+    // Sin allowExtra: bloquear si se alcanzó el límite total
+    if (!group.allowExtra && totalQty >= group.maxSelections) return
+
+    setSelections(prev => ({
+      ...prev,
+      [group.id]: {
+        ...groupOpts,
+        [optionId]: (groupOpts[optionId] ?? 0) + 1,
+      },
+    }))
+  }
+
+  const decrementOption = (groupId: string, optionId: string) => {
+    const groupOpts = selections[groupId] ?? {}
+    const current = groupOpts[optionId] ?? 0
+    if (current <= 0) return
+
+    if (current === 1) {
+      // Eliminar la entrada si llega a 0
+      const { [optionId]: _, ...rest } = groupOpts
+      if (Object.keys(rest).length === 0) {
+        setSelections(prev => {
+          const { [groupId]: __, ...outer } = prev
+          return outer
+        })
+      } else {
+        setSelections(prev => ({ ...prev, [groupId]: rest }))
+      }
+      return
+    }
+
+    setSelections(prev => ({
+      ...prev,
+      [groupId]: { ...groupOpts, [optionId]: current - 1 },
+    }))
+  }
+
   // ── Precio en tiempo real ─────────────────────────────────────────────────
-  const totalPrice = useMemo(() => {
-    const extras = pkg.groups.flatMap(g =>
-      (selections[g.id] ?? []).map(optId => {
-        const opt = g.options.find(o => o.id === optId)
-        return opt?.extraPrice ?? 0
-      })
-    ).reduce((a, b) => a + b, 0)
-    return pkg.price + extras + (isToGo ? pkg.toGoSurcharge : 0)
-  }, [selections, isToGo, pkg])
+
+  const { corridos, extrasTotal } = useMemo(() => {
+    let corridos = 0
+    let extrasTotal = 0
+    for (const group of pkg.groups) {
+      const groupOpts = selections[group.id] ?? {}
+      for (const [optId, qty] of Object.entries(groupOpts)) {
+        if (group.isCountingGroup) corridos += qty
+        const opt = group.options.find(o => o.id === optId)
+        extrasTotal += (opt?.extraPrice ?? 0) * qty
+      }
+    }
+    return { corridos, extrasTotal }
+  }, [selections, pkg.groups])
+
+  const baseQty = Math.max(corridos, 1)
+  const toGoAmount = isToGo ? pkg.toGoSurcharge * baseQty : 0
+  const totalPrice = pkg.price * baseQty + extrasTotal + toGoAmount
 
   // ── Validación ────────────────────────────────────────────────────────────
+
   const isValid = useMemo(() =>
     pkg.groups
       .filter(g => g.minSelections > 0)
-      .every(g => (selections[g.id]?.length ?? 0) >= g.minSelections),
+      .every(g => {
+        const total = Object.values(selections[g.id] ?? {}).reduce((a, b) => a + b, 0)
+        return total >= g.minSelections
+      }),
     [selections, pkg.groups]
   )
 
-  // ── Lógica de selección ───────────────────────────────────────────────────
-  const toggleOption = (group: PackageGroupDto, optionId: string) => {
-    const current = selections[group.id] ?? []
-    const alreadySelected = current.includes(optionId)
-
-    if (alreadySelected) {
-      setSelections(prev => {
-        const next = current.filter(id => id !== optionId)
-        if (next.length === 0) {
-          const { [group.id]: _, ...rest } = prev
-          return rest
-        }
-        return { ...prev, [group.id]: next }
-      })
-      return
-    }
-
-    // Selección única: reemplaza si maxSelections=1 y no allowExtra
-    if (!group.allowExtra && group.maxSelections === 1) {
-      setSelections(prev => ({ ...prev, [group.id]: [optionId] }))
-      return
-    }
-
-    // Selección múltiple: bloquear si se alcanzó el límite sin allowExtra
-    if (!group.allowExtra && current.length >= group.maxSelections) return
-
-    setSelections(prev => ({ ...prev, [group.id]: [...current, optionId] }))
-  }
+  // ── Confirm ───────────────────────────────────────────────────────────────
 
   const handleConfirm = () => {
-    const allSelections: SelectionRequest[] = pkg.groups.flatMap(g =>
-      (selections[g.id] ?? []).map(optId => ({ groupId: g.id, optionId: optId }))
+    const allSelections: SelectionRequest[] = Object.entries(selections).flatMap(
+      ([groupId, opts]) =>
+        Object.entries(opts)
+          .filter(([, qty]) => qty > 0)
+          .map(([optionId, quantity]) => ({ groupId, optionId, quantity }))
     )
     onConfirm({
       menuItemId: pkg.id,
@@ -118,15 +161,19 @@ export default function PackageSelectionForm({
         {/* Grupos y opciones */}
         <div className="overflow-y-auto flex-1 p-4 space-y-5">
           {sortedGroups.map(group => {
-            const selectedForGroup = selections[group.id] ?? []
-            const isGroupSatisfied = selectedForGroup.length >= group.minSelections
+            const groupOpts = selections[group.id] ?? {}
+            const totalQty = Object.values(groupOpts).reduce((a, b) => a + b, 0)
+            const isGroupSatisfied = totalQty >= group.minSelections
             const availableOptions = group.options.filter(o => o.isAvailableToday)
+            const groupCorridos = group.isCountingGroup ? totalQty : null
 
             return (
               <div key={group.id}>
                 <div className="flex items-baseline justify-between mb-2">
-                  <h3 className="text-sm font-semibold text-gray-800">
-                    {group.name}
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-800 inline">
+                      {group.name}
+                    </h3>
                     {group.minSelections > 0 && (
                       <span className={`ml-1.5 text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
                         isGroupSatisfied
@@ -136,7 +183,12 @@ export default function PackageSelectionForm({
                         {isGroupSatisfied ? '✓' : 'Requerido'}
                       </span>
                     )}
-                  </h3>
+                    {groupCorridos !== null && (
+                      <p className="text-[11px] text-amber-600 font-medium mt-0.5">
+                        Corridos: {groupCorridos}
+                      </p>
+                    )}
+                  </div>
                   <p className="text-[11px] text-gray-400">
                     {group.allowExtra
                       ? `Mín. ${group.minSelections}`
@@ -152,37 +204,65 @@ export default function PackageSelectionForm({
                     No hay opciones disponibles hoy para este grupo.
                   </p>
                 ) : (
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-2">
                     {availableOptions.map(opt => {
-                      const isSelected = selectedForGroup.includes(opt.id)
-                      const isExtra = group.allowExtra && selectedForGroup.indexOf(opt.id) >= group.maxSelections
+                      const qty = getQty(group.id, opt.id)
 
                       return (
-                        <button
+                        <div
                           key={opt.id}
-                          onClick={() => toggleOption(group, opt.id)}
-                          className={`relative flex items-center justify-between px-3 py-2.5 rounded-xl border text-left transition-colors ${
-                            isSelected
-                              ? 'bg-orange-50 border-orange-400 text-orange-800'
-                              : 'bg-gray-50 border-gray-200 text-gray-700 hover:border-orange-300 hover:bg-orange-50/50'
+                          className={`flex items-center justify-between px-3 py-2 rounded-xl border transition-colors ${
+                            qty > 0
+                              ? 'bg-orange-50 border-orange-400'
+                              : 'bg-gray-50 border-gray-200'
                           }`}
                         >
-                          <span className="text-sm font-medium leading-tight flex-1 pr-1">
-                            {opt.name}
-                          </span>
-                          <span className="flex flex-col items-end flex-shrink-0 ml-1">
+                          {/* Nombre y extra */}
+                          <div className="flex-1 min-w-0 pr-2">
+                            <span className={`text-sm font-medium leading-tight ${
+                              qty > 0 ? 'text-orange-800' : 'text-gray-700'
+                            }`}>
+                              {opt.name}
+                            </span>
                             {opt.extraPrice > 0 && (
-                              <span className={`text-[10px] font-semibold ${
-                                isExtra ? 'text-orange-600' : isSelected ? 'text-orange-500' : 'text-gray-400'
+                              <span className={`ml-1.5 text-[10px] font-semibold ${
+                                qty > 0 ? 'text-orange-500' : 'text-gray-400'
                               }`}>
                                 +${opt.extraPrice.toFixed(2)}
                               </span>
                             )}
-                            {isSelected && (
-                              <Check className="w-3.5 h-3.5 text-orange-500 mt-0.5" />
+                          </div>
+
+                          {/* Stepper */}
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            {qty > 0 ? (
+                              <>
+                                <button
+                                  onClick={() => decrementOption(group.id, opt.id)}
+                                  className="w-10 h-10 flex items-center justify-center rounded-full border border-orange-300 bg-white text-orange-600 hover:bg-orange-50 active:bg-orange-100 transition-colors"
+                                >
+                                  <Minus className="w-4 h-4" />
+                                </button>
+                                <span className="w-6 text-center font-bold text-gray-800 text-sm">
+                                  {qty}
+                                </span>
+                                <button
+                                  onClick={() => incrementOption(group, opt.id)}
+                                  className="w-10 h-10 flex items-center justify-center rounded-full bg-orange-500 text-white hover:bg-orange-600 active:bg-orange-700 transition-colors"
+                                >
+                                  <Plus className="w-4 h-4" />
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                onClick={() => incrementOption(group, opt.id)}
+                                className="w-10 h-10 flex items-center justify-center rounded-full border border-gray-300 bg-white text-gray-500 hover:border-orange-400 hover:text-orange-500 active:bg-orange-50 transition-colors"
+                              >
+                                <Plus className="w-4 h-4" />
+                              </button>
                             )}
-                          </span>
-                        </button>
+                          </div>
+                        </div>
                       )
                     })}
                   </div>
@@ -223,7 +303,7 @@ export default function PackageSelectionForm({
                 Para llevar
               </span>
               <span className="flex items-center gap-2">
-                <span className="text-xs text-gray-500">+${pkg.toGoSurcharge.toFixed(2)}</span>
+                <span className="text-xs text-gray-500">+${pkg.toGoSurcharge.toFixed(2)} × {baseQty}</span>
                 <div className={`w-10 h-5 rounded-full transition-colors relative ${
                   isToGo ? 'bg-blue-500' : 'bg-gray-300'
                 }`}>
@@ -236,7 +316,12 @@ export default function PackageSelectionForm({
           )}
 
           <div className="flex items-center justify-between px-1">
-            <span className="text-sm text-gray-500">Total por unidad</span>
+            <div>
+              <span className="text-sm text-gray-500">Total estimado</span>
+              {corridos > 0 && (
+                <p className="text-[11px] text-amber-600">{corridos} corrido{corridos !== 1 ? 's' : ''}</p>
+              )}
+            </div>
             <span className="text-xl font-bold text-gray-800">${totalPrice.toFixed(2)}</span>
           </div>
 
