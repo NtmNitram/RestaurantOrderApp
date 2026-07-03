@@ -40,19 +40,22 @@ export default function PackageSelectionForm({
     const groupOpts = selections[group.id] ?? {}
     const currentQty = groupOpts[optionId] ?? 0
 
-    // Radio: elección única — tocar la misma opción ya seleccionada no hace nada
-    if (!group.allowExtra && group.maxSelections === 1) {
-      if (currentQty === 1) return
-      setSelections(prev => ({ ...prev, [group.id]: { [optionId]: 1 } }))
-      return
-    }
-
-    // Ilimitado: allowExtra o grupo de conteo (corridos) — sin tope de cantidad
+    // Ilimitado: allowExtra o grupo de conteo (corridos) — sin tope de cantidad.
+    // Se revisa ANTES que el radio: un grupo de conteo puede tener
+    // maxSelections === 1 (config heredada de "elige 1") y aun así debe
+    // permitir múltiples unidades de la misma opción.
     if (group.allowExtra || group.isCountingGroup) {
       setSelections(prev => ({
         ...prev,
         [group.id]: { ...groupOpts, [optionId]: currentQty + 1 },
       }))
+      return
+    }
+
+    // Radio: elección única — tocar la misma opción ya seleccionada no hace nada
+    if (group.maxSelections === 1) {
+      if (currentQty === 1) return
+      setSelections(prev => ({ ...prev, [group.id]: { [optionId]: 1 } }))
       return
     }
 
