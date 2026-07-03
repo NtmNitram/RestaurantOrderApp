@@ -63,7 +63,8 @@
       "Bash(git merge *)",
       "PowerShell(git *)",
       "PowerShell(dotnet build \"C:\\\\Users\\\\Martin\\\\Desktop\\\\repos\\\\RestaurantOrderAPI\\\\src\" --no-incremental -v minimal 2>&1)",
-      "PowerShell(dotnet build *)"
+      "PowerShell(dotnet build *)",
+      "Bash(git pull *)"
     ]
   }
 }

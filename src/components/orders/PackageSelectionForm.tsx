@@ -37,24 +37,34 @@ export default function PackageSelectionForm({
     selections[groupId]?.[optionId] ?? 0
 
   const incrementOption = (group: PackageGroupDto, optionId: string) => {
-    // Radio: maxSelections=1 && !allowExtra → reemplaza todo el grupo
+    const groupOpts = selections[group.id] ?? {}
+    const currentQty = groupOpts[optionId] ?? 0
+
+    // Radio: elección única — tocar la misma opción ya seleccionada no hace nada
     if (!group.allowExtra && group.maxSelections === 1) {
+      if (currentQty === 1) return
       setSelections(prev => ({ ...prev, [group.id]: { [optionId]: 1 } }))
       return
     }
 
-    const groupOpts = selections[group.id] ?? {}
-    const totalQty = Object.values(groupOpts).reduce((a, b) => a + b, 0)
+    // Ilimitado: allowExtra o grupo de conteo (corridos) — sin tope de cantidad
+    if (group.allowExtra || group.isCountingGroup) {
+      setSelections(prev => ({
+        ...prev,
+        [group.id]: { ...groupOpts, [optionId]: currentQty + 1 },
+      }))
+      return
+    }
 
-    // Sin allowExtra: bloquear si se alcanzó el límite total
-    if (!group.allowExtra && totalQty >= group.maxSelections) return
+    // Multi-select con tope de variedad: bloquea agregar una opción NUEVA
+    // una vez alcanzado maxSelections opciones distintas; incrementar una
+    // opción ya elegida siempre está permitido.
+    const distinctCount = Object.keys(groupOpts).length
+    if (currentQty === 0 && distinctCount >= group.maxSelections) return
 
     setSelections(prev => ({
       ...prev,
-      [group.id]: {
-        ...groupOpts,
-        [optionId]: (groupOpts[optionId] ?? 0) + 1,
-      },
+      [group.id]: { ...groupOpts, [optionId]: currentQty + 1 },
     }))
   }
 
