@@ -116,17 +116,40 @@ export default function PackageSelectionForm({
   const toGoAmount = isToGo ? pkg.toGoSurcharge * baseQty : 0
   const totalPrice = pkg.price * baseQty + extrasTotal + toGoAmount
 
-  // ── Validación ────────────────────────────────────────────────────────────
+  // ── Validación — espeja las reglas del backend (BuildPackageOrderDetailAsync) ──
+  // R1: el grupo isCountingGroup es obligatorio, corridos >= 1.
+  // R3: grupos allowExtra son opcionales — su minSelections no cuenta.
+  // R4: la suma de un grupo allowExtra no puede exceder corridos.
+  // R5: grupos sin flags conservan Min/MaxSelections tal como el backend.
 
-  const isValid = useMemo(() =>
-    pkg.groups
-      .filter(g => g.minSelections > 0)
-      .every(g => {
-        const total = Object.values(selections[g.id] ?? {}).reduce((a, b) => a + b, 0)
-        return total >= g.minSelections
-      }),
-    [selections, pkg.groups]
-  )
+  const isValid = useMemo(() => {
+    if (corridos === 0) return false
+
+    return pkg.groups.every(group => {
+      const total = Object.values(selections[group.id] ?? {}).reduce((a, b) => a + b, 0)
+
+      if (group.isCountingGroup) return true // ya cubierto por corridos > 0 arriba
+      if (group.allowExtra) return total <= corridos
+
+      return total >= group.minSelections && total <= group.maxSelections
+    })
+  }, [selections, pkg.groups, corridos])
+
+  const blockingMessage = useMemo(() => {
+    if (corridos === 0) return 'Selecciona al menos un guisado.'
+
+    const exceededGroup = pkg.groups.find(group => {
+      if (!group.allowExtra) return false
+      const total = Object.values(selections[group.id] ?? {}).reduce((a, b) => a + b, 0)
+      return total > corridos
+    })
+
+    if (!exceededGroup) return null
+
+    const total = Object.values(selections[exceededGroup.id] ?? {}).reduce((a, b) => a + b, 0)
+    return `'${exceededGroup.name}' tiene ${total} selección(es) pero solo hay ${corridos} corrido(s). ` +
+      'Los extras se piden como platillo normal.'
+  }, [selections, pkg.groups, corridos])
 
   // ── Confirm ───────────────────────────────────────────────────────────────
 
@@ -176,9 +199,23 @@ export default function PackageSelectionForm({
           {sortedGroups.map(group => {
             const groupOpts = selections[group.id] ?? {}
             const totalQty = Object.values(groupOpts).reduce((a, b) => a + b, 0)
-            const isGroupSatisfied = totalQty >= group.minSelections
             const availableOptions = group.options.filter(o => o.isAvailableToday)
             const groupCorridos = group.isCountingGroup ? totalQty : null
+
+            // Badge por rol de grupo (R1/R3/R4/R5) — no por minSelections crudo.
+            const badge = group.isCountingGroup
+              ? (totalQty >= 1
+                  ? { label: '✓', className: 'bg-green-100 text-green-700' }
+                  : { label: 'Requerido', className: 'bg-orange-100 text-orange-700' })
+              : group.allowExtra
+                ? (totalQty > corridos
+                    ? { label: 'Excede corridos', className: 'bg-red-100 text-red-700' }
+                    : null) // opcional (R3) — sin badge "Requerido"
+                : group.minSelections > 0
+                  ? (totalQty >= group.minSelections
+                      ? { label: '✓', className: 'bg-green-100 text-green-700' }
+                      : { label: 'Requerido', className: 'bg-orange-100 text-orange-700' })
+                  : null
 
             return (
               <div key={group.id}>
@@ -187,13 +224,9 @@ export default function PackageSelectionForm({
                     <h3 className="text-sm font-semibold text-gray-800 inline">
                       {group.name}
                     </h3>
-                    {group.minSelections > 0 && (
-                      <span className={`ml-1.5 text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
-                        isGroupSatisfied
-                          ? 'bg-green-100 text-green-700'
-                          : 'bg-orange-100 text-orange-700'
-                      }`}>
-                        {isGroupSatisfied ? '✓' : 'Requerido'}
+                    {badge && (
+                      <span className={`ml-1.5 text-[10px] font-medium px-1.5 py-0.5 rounded-full ${badge.className}`}>
+                        {badge.label}
                       </span>
                     )}
                     {groupCorridos !== null && (
@@ -204,7 +237,7 @@ export default function PackageSelectionForm({
                   </div>
                   <p className="text-[11px] text-gray-400">
                     {group.allowExtra
-                      ? `Mín. ${group.minSelections}`
+                      ? 'Opcional'
                       : group.maxSelections === 1
                         ? 'Elige 1'
                         : `Elige ${group.minSelections}–${group.maxSelections}`
@@ -337,6 +370,12 @@ export default function PackageSelectionForm({
             </div>
             <span className="text-xl font-bold text-gray-800">${totalPrice.toFixed(2)}</span>
           </div>
+
+          {!error && blockingMessage && (
+            <p className="text-xs text-orange-700 bg-orange-50 border border-orange-200 rounded-lg px-3 py-2">
+              {blockingMessage}
+            </p>
+          )}
 
           {error && (
             <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
