@@ -213,3 +213,10 @@ export interface DailyAvailabilityUpdateItem {
   optionId: string
   disponibleHoy: boolean
 }
+
+export interface CreatePackageOptionRequest {
+  nombre: string
+  precioExtra: number
+  esRotacionDiaria: boolean
+  disponibleHoy?: boolean
+}
