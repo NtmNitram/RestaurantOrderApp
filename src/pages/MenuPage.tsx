@@ -215,8 +215,8 @@ export default function MenuPage() {
             ) : (
               <div className="flex items-center justify-between gap-3">
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="font-semibold text-gray-800 truncate">{item.nombre}</p>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <p className="font-semibold text-gray-800 truncate min-w-0">{item.nombre}</p>
                     {!item.disponible && (
                       <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full font-medium shrink-0">
                         No disponible
