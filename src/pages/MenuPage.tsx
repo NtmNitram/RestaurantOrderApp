@@ -223,7 +223,7 @@ export default function MenuPage() {
                       </span>
                     )}
                   </div>
-                  {item.descripcion && <p className="text-xs text-gray-500 mt-0.5 truncate">{item.descripcion}</p>}
+                  {item.descripcion && <p className="text-xs text-gray-500 mt-0.5 truncate min-w-0">{item.descripcion}</p>}
                   <p className="text-sm font-bold text-orange-600 mt-1">${item.precio.toFixed(2)}</p>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
