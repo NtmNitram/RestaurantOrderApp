@@ -2,7 +2,7 @@
 
 > Archivo de referencia para sesiones de desarrollo con Claude.
 > No modificar manualmente.
-> Última actualización: 2026-07-03
+> Última actualización: 2026-07-04
 
 ---
 
@@ -580,3 +580,8 @@ viejo de solo à la carte.
 - **Excepción de naming en DB:** las tablas `PackageGroups` y `PackageOptions` están en singular en la migración original (inconsistencia con el resto que está en plural). Al escribir SQL manual en Railway usar el nombre tal como aparece — verificar con `\dt` antes de asumir.
 - **Flags de grupo de paquete:** `isCountingGroup` y `allowExtra` están expuestos en `PackageGroupDto` (backend) y en el tipo `PackageGroupDto` del frontend. Toda validación de paquetes —tanto en `BuildPackageOrderDetailAsync` como en `PackageSelectionForm`— debe usar estos flags como fuente de verdad, no `minSelections` de forma cruda. `minSelections`/`maxSelections` solo aplican a grupos que no tienen ninguno de los dos flags (R5).
 - **Validación espejo frontend/backend:** `PackageSelectionForm.isValid` implementa exactamente las mismas reglas R1-R5 que el backend. Si se modifican las reglas en uno, actualizar el otro en la misma sesión para mantener paridad.
+- **Patrón BackgroundService con DB:** usar `IServiceScopeFactory.CreateScope()` para obtener `AppDbContext` dentro de un `BackgroundService` (singleton). El service worker no tiene request de tenant — usar `IgnoreQueryFilters()` y documentarlo con comentario explicando por qué.
+- **Jobs de sistema vs. queries de tenant:** cualquier operación que deba afectar TODOS los tenants (reseteos automáticos, limpiezas programadas) DEBE usar `IgnoreQueryFilters()` porque el filtro global de `RestaurantId` bloquearía todos los registros sin un JWT activo.
+- **`DisponibleHoy` en `CreatePackageOptionDto`:** campo opcional (`bool DisponibleHoy = false`) que permite crear una opción rotativa ya activa en el mismo paso. El constructor de `PackageOption` sigue derivando `IsAvailableToday = !isDailyRotating`; el service llama `SetAvailabilityToday(true)` después si ambos flags están activos.
+- **Flex + truncate en Tailwind:** para que `truncate` funcione dentro de un flex anidado, TANTO el flex container inner COMO el elemento con `truncate` necesitan `min-w-0`. Sin `min-w-0`, `min-width: auto` (default de flex) impide el truncado. Patrón correcto: `<div class="flex ... min-w-0"><p class="truncate min-w-0">`.
+- **Headers de caché para Service Worker en Vercel:** `sw.js` y `workbox-*.js` deben servirse con `Cache-Control: no-cache, no-store, must-revalidate` para que `autoUpdate` detecte nuevas versiones en cada deploy. Los assets en `/assets/*` pueden usar `immutable` (1 año) porque Vite los versiona por hash. Configurado en `vercel.json` + `cleanupOutdatedCaches: true` en `vite.config.ts`.
