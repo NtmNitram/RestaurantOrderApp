@@ -2,7 +2,7 @@
 
 > Archivo de referencia para sesiones de desarrollo con Claude.
 > No modificar manualmente.
-> Última actualización: 2026-07-01
+> Última actualización: 2026-07-03
 
 ---
 
@@ -571,3 +571,12 @@ viejo de solo à la carte.
 - OrderCard acepta isLatest?: boolean; intercambia set completo de clases
   bg/border (bg-yellow-900/10 border-yellow-500/60 vs bg-gray-800
   border-gray-700) para evitar conflicto de utilidades bg-* en Tailwind.
+
+---
+
+## Convenciones de desarrollo — guardrails de proceso (2026-07-03)
+
+- **Gate de merge a `main`:** la CI (`.github/workflows/tests.yml` en el repo backend) debe estar verde antes de mergear cualquier rama a `main`. El workflow corre automáticamente en push/PR a `main`, `staging` y `feat/*`.
+- **Excepción de naming en DB:** las tablas `PackageGroups` y `PackageOptions` están en singular en la migración original (inconsistencia con el resto que está en plural). Al escribir SQL manual en Railway usar el nombre tal como aparece — verificar con `\dt` antes de asumir.
+- **Flags de grupo de paquete:** `isCountingGroup` y `allowExtra` están expuestos en `PackageGroupDto` (backend) y en el tipo `PackageGroupDto` del frontend. Toda validación de paquetes —tanto en `BuildPackageOrderDetailAsync` como en `PackageSelectionForm`— debe usar estos flags como fuente de verdad, no `minSelections` de forma cruda. `minSelections`/`maxSelections` solo aplican a grupos que no tienen ninguno de los dos flags (R5).
+- **Validación espejo frontend/backend:** `PackageSelectionForm.isValid` implementa exactamente las mismas reglas R1-R5 que el backend. Si se modifican las reglas en uno, actualizar el otro en la misma sesión para mantener paridad.
