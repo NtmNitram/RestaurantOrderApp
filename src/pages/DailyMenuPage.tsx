@@ -59,11 +59,11 @@ export default function DailyMenuPage() {
   const [addSuccess, setAddSuccess] = useState(false)
   const [addError, setAddError] = useState<string | null>(null)
 
-  // Pre-seleccionar "3er Tiempo" si existe; si no, el primer grupo disponible.
+  // Pre-seleccionar el grupo de conteo (isCountingGroup) si existe; si no, el primer grupo disponible.
   useEffect(() => {
     if (allGroups.length === 0 || selectedKey) return
-    const tercerTiempo = allGroups.find(g => g.groupName === '3er Tiempo')
-    const initial = tercerTiempo ?? allGroups[0]
+    const countingGroup = allGroups.find(g => g.isCountingGroup === true)
+    const initial = countingGroup ?? allGroups[0]
     setSelectedKey(`${initial.packageId}::${initial.groupId}`)
   }, [allGroups, selectedKey])
 
