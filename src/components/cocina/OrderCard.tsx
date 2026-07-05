@@ -28,12 +28,6 @@ function formatTime(isoDate: string): string {
   }).format(new Date(isoDate))
 }
 
-function buildKitchenLabel(item: OrderDetail): string {
-  if (!item.selections || item.selections.length === 0) return item.nombreArticulo
-  const opciones = item.selections.map(s => s.quantity > 1 ? `${s.quantity}x ${s.optionNameSnapshot}` : s.optionNameSnapshot).join(', ')
-  return `${item.nombreArticulo} — ${opciones}`
-}
-
 interface Props {
   order: Order
   isLatest?: boolean
@@ -81,21 +75,33 @@ export default function OrderCard({ order, isLatest }: Props) {
       <ul className="space-y-2 border-t border-gray-700 pt-3">
         {order.articulos.map(item => {
           const isNewItem = newItemIds.has(item.id)
+          const hasSelections = featureFlags.packageOptions && item.selections && item.selections.length > 0
           return (
             <li key={item.id}>
-              <div className={`flex items-baseline gap-2 rounded-lg px-2 py-1 -mx-2 ${
+              <div className={`rounded-lg px-2 py-1 -mx-2 ${
                 isNewItem ? 'bg-yellow-900/30 border-l-2 border-yellow-500' : ''
               }`}>
-                <span className="text-orange-300 font-bold text-lg leading-none w-6 text-right flex-shrink-0">
-                  {item.cantidad}×
-                </span>
-                <span className={`text-base leading-snug flex-1 ${isNewItem ? 'text-yellow-200' : 'text-white'}`}>
-                  {featureFlags.packageOptions ? buildKitchenLabel(item) : item.nombreArticulo}
-                  {featureFlags.packageOptions && item.isToGo && (
-                    <span className="ml-2 text-yellow-300 text-xs">🥡 Para llevar</span>
-                  )}
-                </span>
-                <span className="text-gray-500 text-xs flex-shrink-0">{formatTime(item.createdAt)}</span>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-orange-300 font-bold text-lg leading-none w-6 text-right flex-shrink-0">
+                    {item.cantidad}×
+                  </span>
+                  <span className={`text-base leading-snug flex-1 ${isNewItem ? 'text-yellow-200' : 'text-white'}`}>
+                    {item.nombreArticulo}
+                    {featureFlags.packageOptions && item.isToGo && (
+                      <span className="ml-2 text-yellow-300 text-xs">🥡 Para llevar</span>
+                    )}
+                  </span>
+                  <span className="text-gray-500 text-xs flex-shrink-0">{formatTime(item.createdAt)}</span>
+                </div>
+                {hasSelections && (
+                  <ul className="ml-8 mt-1 space-y-0.5">
+                    {item.selections!.map(s => (
+                      <li key={s.id} className="text-sm text-gray-300 leading-snug">
+                        {s.quantity > 1 ? `${s.quantity}x ${s.optionNameSnapshot}` : s.optionNameSnapshot}
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
               {item.notas && (
                 <p className="text-sm text-yellow-200 italic ml-8 mt-0.5">{item.notas}</p>
