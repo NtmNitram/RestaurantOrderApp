@@ -9,6 +9,7 @@ interface GroupOption {
   groupId: string
   label: string
   groupName: string
+  isCountingGroup: boolean
 }
 
 export default function DailyMenuPage() {
@@ -50,6 +51,7 @@ export default function DailyMenuPage() {
         groupId: g.id,
         label: `${pkg.name} › ${g.name}`,
         groupName: g.name,
+        isCountingGroup: g.isCountingGroup,
       }))
     )
   }, [packages])

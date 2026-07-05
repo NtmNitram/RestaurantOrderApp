@@ -183,6 +183,7 @@ export interface OrderDetailSelectionDto {
   packageOptionId: string
   optionNameSnapshot: string
   extraPriceSnapshot: number
+  quantity: number
 }
 
 export interface OrderDetailDto {

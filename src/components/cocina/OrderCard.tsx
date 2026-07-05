@@ -30,7 +30,7 @@ function formatTime(isoDate: string): string {
 
 function buildKitchenLabel(item: OrderDetail): string {
   if (!item.selections || item.selections.length === 0) return item.nombreArticulo
-  const opciones = item.selections.map(s => s.optionNameSnapshot).join(', ')
+  const opciones = item.selections.map(s => s.quantity > 1 ? `${s.quantity}x ${s.optionNameSnapshot}` : s.optionNameSnapshot).join(', ')
   return `${item.nombreArticulo} — ${opciones}`
 }
 
