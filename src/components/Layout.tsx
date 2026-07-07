@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { UtensilsCrossed, Users, ClipboardList, BarChart3, LogOut, BookOpen, Archive, CalendarDays } from 'lucide-react'
+import { UtensilsCrossed, Users, ClipboardList, BarChart3, LogOut, BookOpen, Archive, CalendarDays, UserCog } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '../context/AuthContext'
 import { getOrders } from '../api/orders'
@@ -36,6 +36,7 @@ export default function Layout() {
         { to: '/menu-dia', label: 'Menú Día', icon: <CalendarDays className="w-5 h-5" /> },
       ] : []),
       { to: '/resumen', label: 'Resumen', icon: <BarChart3 className="w-5 h-5" /> },
+      { to: '/usuarios', label: 'Usuarios', icon: <UserCog className="w-5 h-5" /> },
     ] : []),
   ]
 

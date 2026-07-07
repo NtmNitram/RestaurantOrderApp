@@ -11,6 +11,7 @@ import DailyMenuPage from './pages/DailyMenuPage'
 import MenuPage from './pages/MenuPage'
 import VajillaPage from './pages/VajillaPage'
 import CocinaPage from './pages/CocinaPage'
+import UsersPage from './pages/UsersPage'
 
 export default function App() {
   return (
@@ -53,6 +54,14 @@ export default function App() {
               element={
                 <ProtectedRoute role="Administrador">
                   <DailyMenuPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="usuarios"
+              element={
+                <ProtectedRoute role="Administrador">
+                  <UsersPage />
                 </ProtectedRoute>
               }
             />

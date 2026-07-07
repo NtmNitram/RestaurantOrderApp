@@ -221,3 +221,32 @@ export interface CreatePackageOptionRequest {
   esRotacionDiaria: boolean
   disponibleHoy?: boolean
 }
+
+// ── Usuarios ──────────────────────────────────────────────────────────────────
+
+export type UserRole = 'Administrador' | 'Empleado' | 'Cocina'
+
+export interface User {
+  id: number
+  username: string
+  displayName: string
+  role: UserRole
+  isActive: boolean
+  createdAt: string
+}
+
+export interface CreateUserRequest {
+  username: string
+  displayName: string
+  password: string
+  role: UserRole
+}
+
+export interface UpdateUserRequest {
+  displayName: string
+  role: UserRole
+}
+
+export interface ResetPasswordRequest {
+  newPassword: string
+}
