@@ -48,6 +48,7 @@ export interface Order {
   notas: string
   total: number
   articulos: OrderDetail[]
+  nombreCreador?: string | null
 }
 
 export interface DailySummaryCliente {
