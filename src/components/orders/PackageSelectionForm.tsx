@@ -136,7 +136,10 @@ export default function PackageSelectionForm({
   }, [selections, pkg.groups, corridos])
 
   const blockingMessage = useMemo(() => {
-    if (corridos === 0) return 'Selecciona al menos un guisado.'
+    if (corridos === 0) {
+      const countingGroup = pkg.groups.find(g => g.isCountingGroup)
+      return `Selecciona al menos un(a) ${countingGroup?.name ?? 'elemento'}.`
+    }
 
     const exceededGroup = pkg.groups.find(group => {
       if (!group.allowExtra) return false
