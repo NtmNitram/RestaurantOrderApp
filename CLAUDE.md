@@ -2,7 +2,7 @@
 
 > Archivo de referencia para sesiones de desarrollo con Claude.
 > No modificar manualmente.
-> Última actualización: 2026-07-04
+> Última actualización: 2026-07-08
 
 ---
 
@@ -158,6 +158,10 @@ RestaurantOrderAPI/src/
 | ToGoSurcharge en MenuItem y formulario de menú | ✅ | ✅ |
 | FeatureFlags JSONB en Restaurant | — | ✅ |
 | featureFlags en AuthContext (parseado del JWT) | ✅ | — |
+| Gestión de usuarios individuales (crear/editar/resetear contraseña/activar-desactivar) | ✅ | ✅ |
+| Creador de pedido en Order (CreatedByUserId, NombreCreador en cocina) | ✅ | ✅ |
+| Filtro de pedidos por rol: Empleado no ve pedidos de Administrador | — | ✅ |
+| Paquete "Desayuno Completo" sembrado en producción (3 grupos, 21 opciones) | — | ✅ (DB) |
 
 ### Pendiente de implementar
 
@@ -229,8 +233,10 @@ Status (Pending/Delivered/Cancelled),
 PaymentStatus (PendienteCobro/Cobrado),
 Notes?, Total decimal(10,2),
 IsDeleted, DeletedAt,
+CreatedByUserId? (int, FK→Users, ON DELETE SET NULL),
 DeliveryRoundId? (nullable — solo Externo)
 → OrderDetails
+→ CreatedBy (User?, nav. property)
 ```
 
 ### OrderDetail
@@ -265,7 +271,9 @@ DeliveredAt (UTC), RecoveredAt? (UTC)
 
 ### User
 ```
-Id, Username, PasswordHash, Role, RestaurantId
+Id, Username, PasswordHash, Role,
+DisplayName VARCHAR(100), IsActive bool (default true),
+CreatedAt TIMESTAMPTZ (DEFAULT now()), RestaurantId
 ```
 
 ### Restaurant
@@ -288,6 +296,7 @@ Id, Name, IsActive, FeatureFlags JSONB (default '{}')
 | `/menu` | MenuPage | Solo Administrador |
 | `/menu-dia` | DailyMenuPage | Solo Administrador |
 | `/resumen` | DailySummaryPage | Solo Administrador |
+| `/usuarios` | UsersPage | Solo Administrador |
 
 ---
 
@@ -470,6 +479,10 @@ Opciones fijas (IsDailyRotating=false) siempre disponibles sin configuración.
 - **Aviso de error en NewOrderPage:** si `GET /api/packages` falla por cualquier razón, se muestra un aviso inline (no bloqueante) y el mesero puede seguir tomando pedidos à la carte con normalidad.
 - **Bug resuelto — CORS en staging:** `Cors__AllowedOrigins__0` tenía un typo (`ttps://` en vez de `https://`), causando que todas las peticiones del frontend de staging fallaran con CORS error. Regla: siempre verificar el valor completo de las variables de entorno carácter por carácter, especialmente tras copiar/pegar.
 - **Toggle mostrar/ocultar contraseña en LoginPage:** botón de ojo en el campo de contraseña para verificar que se está escribiendo correctamente, especialmente útil en sesiones largas sin login donde es fácil perder de vista qué se está tecleando.
+- **Hashing de contraseñas:** BCrypt (work factor 12) vía `PasswordHelper` en Application. Verificación dual: acepta hashes BCrypt (prefijo `$2`) y SHA-256 legacy (hex 64 chars). On-login: si `NeedsRehash()` devuelve `true`, rehashea a BCrypt y persiste. Nunca generar hashes SHA-256 nuevos.
+- **Order.CreatedByUserId:** campo `int?` FK→Users con `ON DELETE SET NULL`. Se puebla en `CreateAsync` desde `_currentUser.UserId`. `OrderResponseDto` expone `NombreCreador` (`CreatedBy?.DisplayName`). `OrderRepository.GetAllAsync` y `GetByIdWithDetailsAsync` incluyen `.Include(o => o.CreatedBy)`.
+- **Filtro de pedidos por rol:** en `OrderService.GetAllAsync`, si `_currentUser.Role == "Empleado"` se filtra en memoria `.Where(o => o.CreatedBy == null || o.CreatedBy.Role != "Administrador")`. `ICurrentUserService` expone `Role` desde `ClaimTypes.Role`. Administrador y Cocina ven todo sin filtro. Pedidos sin creador (null) son visibles para todos.
+- **Seeds manuales en Railway SQL Editor:** el editor web acepta `TRUNCATE` e `INSERT` simples pero rechaza `DELETE` con `LIMIT`, CTEs con `INSERT` y `FETCH FIRST`. Para seeds complejos usar INSERTs paso a paso capturando IDs vía `SELECT` previo; para DELETEs selectivos usar cliente externo (DBeaver/psql) con el connection string de Railway.
 
 ---
 
