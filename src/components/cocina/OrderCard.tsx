@@ -56,6 +56,9 @@ export default function OrderCard({ order, isLatest }: Props) {
           {order.referenciaCliente && (
             <p className="text-sm text-gray-400 mt-0.5">{order.referenciaCliente}</p>
           )}
+          {order.nombreCreador && (
+            <p className="text-xs text-gray-500 mt-0.5">por: {order.nombreCreador}</p>
+          )}
         </div>
         <div className="flex items-start gap-2 flex-shrink-0 ml-3">
           <div className="text-right">
