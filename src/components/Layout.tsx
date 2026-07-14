@@ -41,7 +41,7 @@ export default function Layout() {
   ]
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-gray-100 overflow-x-hidden">
       {/* Top nav — desktop */}
       <nav className="hidden md:block bg-gray-900 shadow-lg">
         <div className="max-w-4xl mx-auto px-4 py-4 flex items-center gap-2">

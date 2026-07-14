@@ -184,7 +184,7 @@ export default function MenuPage() {
         {[...disponibles, ...noDisponibles].map(item => (
           <div
             key={item.id}
-            className={`bg-white rounded-xl border p-4 transition-opacity ${!item.disponible ? 'opacity-50 border-gray-200' : 'border-gray-200'}`}
+            className={`bg-white rounded-xl border p-4 transition-opacity min-w-0 ${!item.disponible ? 'opacity-50 border-gray-200' : 'border-gray-200'}`}
           >
             {confirmDeleteId === item.id ? (
               <div>
@@ -213,7 +213,7 @@ export default function MenuPage() {
                 </div>
               </div>
             ) : (
-              <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center justify-between gap-3 min-w-0">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 min-w-0">
                     <p className="font-semibold text-gray-800 truncate min-w-0">{item.nombre}</p>
