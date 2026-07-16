@@ -15,6 +15,12 @@
 
 ### 🔴 Pendientes de código
 
+**[FRONTEND] Tests automatizados — deuda técnica NewOrderPage / PackageSelectionForm**
+- `src/**/*.test.*` → 0 resultados: no existe suite de tests en el proyecto
+- Descubierto en sesión 2026-07-15 al reconocer el flujo de paquetes en NewOrderPage
+- Candidatos de mayor riesgo: `handlePackageConfirm`, `handleSubmit` (payload à la carte + paquetes), validaciones R1–R5 espejadas en `PackageSelectionForm.isValid`
+- Setup sugerido: Vitest + React Testing Library (ya en `package.json` si se instaló con Vite)
+
 **[FRONTEND] UX tab "Todos" en OrdersPage**
 - Cambio de comportamiento pendiente de definir: ¿qué debe mostrar exactamente "Todos" vs "Pendientes"?
 - Confirmar con cliente antes de implementar
