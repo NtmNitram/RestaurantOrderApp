@@ -150,7 +150,6 @@ export default function NewOrderPage() {
           pkg={packageForForm}
           onConfirm={handlePackageConfirm}
           onCancel={() => setPackageForForm(null)}
-          confirmLabel="Agregar al carrito"
         />
       )}
 
@@ -292,27 +291,37 @@ export default function NewOrderPage() {
         rows={2}
       />
 
-      <div className="bg-white rounded-xl border border-gray-200 p-4 flex items-center justify-between">
-        <div>
-          <p className="text-sm text-gray-500">{cantidadItems} artículo(s)</p>
-          <p className="text-[11px] text-gray-400 uppercase tracking-wide">Total estimado</p>
-          <p className="text-xl font-bold text-gray-800">${totalEstimado.toFixed(2)}</p>
-        </div>
-        <button
-          onClick={handleSubmit}
-          disabled={cantidadItems === 0 || mutation.isPending}
-          className="flex items-center gap-2 bg-orange-500 text-white px-5 py-2.5 rounded-lg font-medium hover:bg-orange-600 disabled:opacity-40 transition-colors"
-        >
-          <ShoppingBag className="w-4 h-4" />
-          {mutation.isPending ? 'Enviando...' : 'Confirmar pedido'}
-        </button>
-      </div>
+      {/* Espaciador para que el último ítem no quede tapado por la barra fija */}
+      <div className="h-24" />
 
-      {mutation.isError && (
-        <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg p-3 text-sm mt-3">
-          Error al crear el pedido. Intenta de nuevo.
+      {/* Barra flotante: total + confirmar pedido */}
+      <div className="fixed bottom-16 md:bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 shadow-lg">
+        <div
+          className="max-w-4xl mx-auto px-4 pt-3"
+          style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom, 0.75rem))' }}
+        >
+          {mutation.isError && (
+            <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-2">
+              Error al crear el pedido. Intenta de nuevo.
+            </p>
+          )}
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm text-gray-500">{cantidadItems} artículo(s)</p>
+              <p className="text-[11px] text-gray-400 uppercase tracking-wide">Total estimado</p>
+              <p className="text-xl font-bold text-gray-800">${totalEstimado.toFixed(2)}</p>
+            </div>
+            <button
+              onClick={handleSubmit}
+              disabled={cantidadItems === 0 || mutation.isPending}
+              className="flex-shrink-0 flex items-center gap-2 bg-orange-500 text-white px-5 py-2.5 rounded-lg font-medium hover:bg-orange-600 disabled:opacity-40 transition-colors"
+            >
+              <ShoppingBag className="w-4 h-4" />
+              {mutation.isPending ? 'Enviando...' : 'Confirmar pedido'}
+            </button>
+          </div>
         </div>
-      )}
+      </div>
     </div>
   )
 }
