@@ -1,6 +1,6 @@
 # BACKLOG.md
 > Actualizar en cada sesión. Mover ítems completados a DONE al final.
-> Última actualización: 2026-06-25
+> Última actualización: 2026-07-15
 
 ---
 
@@ -33,6 +33,12 @@
 ---
 
 ## SIGUIENTE — Fase 1 (módulos pendientes)
+
+### Módulos nuevos
+
+- [ ] Cocina: marcar tiempos de Comida Corrida (1er/2do/3er) con color conforme se entregan, sin bloquear el botón "X" de marcar pedido como listo. Diseño completo en Notas de sesión 2026-07-15.
+
+### Módulos existentes (expansión)
 
 **[BACKEND + FRONTEND] DeliveryRound**
 - Entidad: `Id, RestaurantId, SellerUserId, StartedAt, ClosedAt?, Status (Open/Closed)`
@@ -138,6 +144,7 @@
 - [x] Fix: GET /api/packages accesible a cualquier rol autenticado (antes solo Administrador, bloqueaba a Empleado tomar pedidos con paquetes)
 - [x] Aviso inline en NewOrderPage si falla la carga de paquetes (no bloquea el resto del flujo de pedido)
 - [x] Fix CORS staging: Cors__AllowedOrigins__0 tenía "ttps://" en vez de "https://" — typo corregido, staging funcional
+- [x] [FRONTEND] Botón "Confirmar pedido" flotante/sticky en NewOrderPage + botón del formulario de paquete renombrado de "Agregar al carrito" a "Agregar al pedido" (Comida Corrida y Desayuno Completo). Rama: feat/pedido-confirmar-flotante. Sin cambio de lógica de envío — sigue siendo un solo POST al confirmar, soporta múltiples paquetes en el mismo pedido.
 
 ### Incidentes resueltos en producción
 - [x] Bug 2026-05-22: `GetDailySummaryAsync` — `DateTime.Kind = Unspecified` → fix: `DateTime.SpecifyKind(..., Utc)`
@@ -159,3 +166,44 @@
 - Fase 0 cerrada como completa
 - Documentos actualizados: CLAUDE.md, ROADMAP.md, BACKLOG.md
 - Pendientes inmediatos identificados: activar PackageOptions (cliente), UX tab "Todos", warning delete MenuItem, decisión IsToGo
+
+### 2026-07-15
+
+- Implementado: botón "Confirmar pedido" flotante en NewOrderPage + renombrado de
+  botón de paquete a "Agregar al pedido". No se tocó la lógica de envío ni el
+  soporte de múltiples paquetes por pedido (verificado que es una feature
+  deliberada, no un edge case).
+
+- Diseñado (pendiente de implementar) — Cocina: tracking de tiempos de Comida
+  Corrida:
+
+  - Contexto: la Comida Corrida se sirve en 3 tiempos (1er Tiempo, 2do Tiempo,
+    3er Tiempo/plato fuerte), ya existen como PackageGroups separados con esos
+    nombres. Cocina quiere marcar con color cada tiempo conforme se entrega, sin
+    cambiar el flujo existente del botón "X" (que marca Order.Status = Delivered
+    y quita el pedido de la vista).
+
+  - Modelo propuesto: tabla nueva `OrderGroupDelivery` (Id, OrderId, RestaurantId,
+    PackageGroupId, DeliveredAt, DeliveredByUserId nullable) con UNIQUE
+    (OrderId, PackageGroupId) — mismo patrón que OrderTableware. Granularidad por
+    pedido completo, no por corrido individual (un pedido con 3 corridos distintos
+    comparte el mismo PackageGroupId de "1er Tiempo", un solo registro cubre los 3).
+
+  - Nuevo campo `PackageGroup.RequiresStagedDelivery BOOLEAN DEFAULT false` — se
+    activa vía SQL directo en Railway solo en los 3 grupos de Comida Corrida (igual
+    que IsCountingGroup/AllowExtra hoy). Evita hardcodear nombres de grupo y evita
+    que le aparezcan botones de "tiempo" a Desayuno Completo, que no los necesita.
+
+  - Endpoints propuestos: POST /api/orders/{orderId}/tiempos/{packageGroupId}/entregar
+    (marca, idempotente) y DELETE .../entregar (desmarca, por si cocina se equivoca).
+
+  - Frontend: OrderCard.tsx (Cocina) necesita pills/botones dinámicos por groupName
+    presente con RequiresStagedDelivery=true; useCocinaOrders debe incluir qué
+    packageGroupId ya están entregados por pedido para persistir color entre polls
+    (cada 15s) y recargas.
+
+  - Sin decidir todavía: si el botón "X" debería validar que los 3 tiempos estén
+    marcados antes de permitir completar el pedido (por ahora: no bloquea).
+
+- Próximo paso: retomar este diseño la próxima sesión, empezando por reconocimiento
+  de CocinaPage.tsx / OrderCard.tsx / useCocinaOrders antes de escribir la migración.
