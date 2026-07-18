@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { UtensilsCrossed, Volume2, VolumeX, Eye, EyeOff } from 'lucide-react'
 import { useCocinaOrders } from '../hooks/useCocinaOrders'
+import { useDeliveredLines } from '../hooks/useDeliveredLines'
 import OrderCard from '../components/cocina/OrderCard'
 import { useAuth } from '../context/AuthContext'
 import type { Order } from '../types'
@@ -100,6 +101,7 @@ function playBeep(ctx: AudioContext) {
 
 function CocinaScreen() {
   const { data: orders, isLoading } = useCocinaOrders()
+  const { isDelivered, toggle, cleanupStaleOrders } = useDeliveredLines()
   const [audioEnabled, setAudioEnabled] = useState(false)
   const [flash, setFlash] = useState(false)
   const audioCtxRef = useRef<AudioContext | null>(null)
@@ -136,6 +138,10 @@ function CocinaScreen() {
 
     prevIdsRef.current = currentIds
   }, [orders, audioEnabled])
+
+  useEffect(() => {
+    if (orders) cleanupStaleOrders(orders.map(o => o.id))
+  }, [orders, cleanupStaleOrders])
 
   const count = orders?.length ?? 0
 
@@ -205,7 +211,13 @@ function CocinaScreen() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {orders!.map(order => (
-              <OrderCard key={order.id} order={order} isLatest={latestByClient.has(order.id)} />
+              <OrderCard
+                key={order.id}
+                order={order}
+                isLatest={latestByClient.has(order.id)}
+                isDelivered={(lineKey) => isDelivered(order.id, lineKey)}
+                onToggle={(lineKey) => toggle(order.id, lineKey)}
+              />
             ))}
           </div>
         )}
