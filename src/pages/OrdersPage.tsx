@@ -88,7 +88,7 @@ function AddItemsModal({ order, onClose }: { order: Order; onClose: () => void }
           pkg={packageForModal}
           orderId={order.id}
           onClose={() => setPackageForModal(null)}
-          onSuccess={() => setPackageForModal(null)}
+          onSuccess={() => { setPackageForModal(null); onClose() }}
         />
       )}
 
