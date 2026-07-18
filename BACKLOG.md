@@ -37,6 +37,10 @@
 ### Módulos nuevos
 
 - [ ] Cocina: marcar tiempos de Comida Corrida (1er/2do/3er) con color conforme se entregan, sin bloquear el botón "X" de marcar pedido como listo. Diseño completo en Notas de sesión 2026-07-15.
+- [ ] Sistema de tickets de venta (recibo al cliente) — digital primero, impresión
+  térmica después. Diseño y decisiones pendientes en Notas de sesión 2026-07-15.
+  NOTA: es el paso final antes de dar el proyecto por terminado (luego solo
+  mantenimiento y escalabilidad).
 
 ### Módulos existentes (expansión)
 
@@ -207,3 +211,44 @@
 
 - Próximo paso: retomar este diseño la próxima sesión, empezando por reconocimiento
   de CocinaPage.tsx / OrderCard.tsx / useCocinaOrders antes de escribir la migración.
+
+### 2026-07-15 — Diseño preliminar: Sistema de tickets de venta
+Estado: SOLO PLANEADO, pendiente de conversación con el cliente antes de implementar.
+Es el módulo final del proyecto (después: solo mantenimiento y escalabilidad).
+
+Alcance confirmado con Martín:
+- Es un TICKET DE VENTA / recibo interno para el cliente — NO es una factura/CFDI
+  fiscal. El CFDI (RESICO/SAT) sigue siendo un tema aparte ya listado en Fase 0.
+  Si el cliente en realidad pide facturar (CFDI timbrado), es otro proyecto entero
+  (PAC, certificados) y se separa.
+- Salida: digital primero (sin hardware); impresión térmica como fase siguiente,
+  no bloquea lo digital.
+
+Opciones de diseño evaluadas:
+- Digital (recomendado empezar aquí): componente React que renderiza el ticket
+  (formato 58/80mm) desde la Order existente, reusando formatCurrency/formatDate.
+  Imprimir vía diálogo nativo del navegador y/o generar PDF. Cero backend nuevo si
+  el ticket se arma con datos que la orden ya devuelve.
+  - Alternativa: generar PDF en el backend (.NET) — útil si se quiere archivar o
+    reenviar (ej. por WhatsApp) o garantizar ticket idéntico desde cualquier origen.
+    Más trabajo; diferir hasta que se pida archivar/reenviar.
+- Impresión física: miniprinter térmica ESC/POS. Rutas: WebUSB/Web Bluetooth desde
+  la PWA (barato, frágil entre navegadores/Android), diálogo de impresión del
+  navegador contra impresora del sistema (lo más simple si la tableta ya la
+  reconoce), o micro-agente de impresión (más robusto, más infra). El roadmap ya
+  anticipa "WebUSB o microservicio" para comandas de cocina (Fase 2) — misma
+  decisión aplica; conviene resolverla UNA vez para tickets y comandas juntos.
+
+Decisiones pendientes con el cliente (esto define el diseño final):
+- Folio consecutivo: ¿número de ticket secuencial por restaurante (#0001, #0002)?
+  Requiere campo/tabla nuevo y cuidado con concurrencia.
+- Datos del encabezado: hoy Restaurant solo tiene Id, Name, FeatureFlags. Si quieren
+  dirección, teléfono, leyenda "gracias por su compra", etc., hay que agregar campos
+  a Restaurant.
+- ¿El ticket se persiste como registro, o basta generarlo al vuelo desde la Order?
+- ¿En qué momento del flujo se dispara? (¿al cobrar? ¿desde la tarjeta del pedido en
+  la pestaña Pedidos?)
+
+Próximo paso: Martín lleva estas 4 preguntas al cliente. Con las respuestas se hace
+reconocimiento (qué devuelve hoy el DTO de Order, dónde encaja el botón de ticket) y
+luego el plan de implementación.
