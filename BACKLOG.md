@@ -1,6 +1,6 @@
 # BACKLOG.md
 > Actualizar en cada sesión. Mover ítems completados a DONE al final.
-> Última actualización: 2026-07-15
+> Última actualización: 2026-07-17
 
 ---
 
@@ -149,6 +149,7 @@
 - [x] Aviso inline en NewOrderPage si falla la carga de paquetes (no bloquea el resto del flujo de pedido)
 - [x] Fix CORS staging: Cors__AllowedOrigins__0 tenía "ttps://" en vez de "https://" — typo corregido, staging funcional
 - [x] [FRONTEND] Botón "Confirmar pedido" flotante/sticky en NewOrderPage + botón del formulario de paquete renombrado de "Agregar al carrito" a "Agregar al pedido" (Comida Corrida y Desayuno Completo). Rama: feat/pedido-confirmar-flotante. Sin cambio de lógica de envío — sigue siendo un solo POST al confirmar, soporta múltiples paquetes en el mismo pedido.
+- [x] [FRONTEND] Cocina: marcar líneas entregadas por línea (visual, localStorage) — selecciones de paquete y ítems à la carte tocables individualmente, tachado reversible, persiste entre recargas y polls. Una sola tableta; versión multi-tableta (OrderGroupDelivery + backend) queda documentada como opción futura.
 
 ### Incidentes resueltos en producción
 - [x] Bug 2026-05-22: `GetDailySummaryAsync` — `DateTime.Kind = Unspecified` → fix: `DateTime.SpecifyKind(..., Utc)`
@@ -252,3 +253,15 @@ Decisiones pendientes con el cliente (esto define el diseño final):
 Próximo paso: Martín lleva estas 4 preguntas al cliente. Con las respuestas se hace
 reconocimiento (qué devuelve hoy el DTO de Order, dónde encaja el botón de ticket) y
 luego el plan de implementación.
+
+### 2026-07-17
+- Implementado: marcado visual de líneas entregadas en pantalla de Cocina (localStorage,
+  una tableta). Hook `useDeliveredLines` con estructura `{orderId: lineKey[]}`.
+  lineKey: `sel:{Guid}` para selecciones de paquete, `item:{int}` para à la carte.
+  Cleanup automático al cargar: elimina entradas de pedidos que ya no están pendientes.
+- Versión backend (tabla `OrderGroupDelivery`, endpoints, multi-tableta) documentada
+  como opción futura si el cliente crece a varias pantallas de cocina — NO implementada.
+- Comportamiento: la línea del nombre del paquete (ej. "Comida Corrida") NO es tocable;
+  solo las selecciones anidadas (sopa, arroz, guisado) y los ítems à la carte son líneas
+  marcables. Toque → tachar + atenuar + ícono check; toque de nuevo → desmarcar.
+  El botón X de completar pedido sigue sin cambios.

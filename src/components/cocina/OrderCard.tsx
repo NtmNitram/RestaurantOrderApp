@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { X } from 'lucide-react'
+import { X, Check } from 'lucide-react'
 import type { Order, OrderDetail } from '../../types'
 import { changeOrderStatus } from '../../api/orders'
 import { useAuth } from '../../context/AuthContext'
@@ -31,9 +31,11 @@ function formatTime(isoDate: string): string {
 interface Props {
   order: Order
   isLatest?: boolean
+  isDelivered: (lineKey: string) => boolean
+  onToggle: (lineKey: string) => void
 }
 
-export default function OrderCard({ order, isLatest }: Props) {
+export default function OrderCard({ order, isLatest, isDelivered, onToggle }: Props) {
   const queryClient = useQueryClient()
   const [confirming, setConfirming] = useState(false)
   const { featureFlags } = useAuth()
@@ -79,16 +81,29 @@ export default function OrderCard({ order, isLatest }: Props) {
         {order.articulos.map(item => {
           const isNewItem = newItemIds.has(item.id)
           const hasSelections = featureFlags.packageOptions && item.selections && item.selections.length > 0
+          const itemKey = `item:${item.id}`
+          const itemDelivered = !hasSelections && isDelivered(itemKey)
+
           return (
             <li key={item.id}>
-              <div className={`rounded-lg px-2 py-1 -mx-2 ${
-                isNewItem ? 'bg-yellow-900/30 border-l-2 border-yellow-500' : ''
-              }`}>
+              <div
+                className={`rounded-lg px-2 py-1 -mx-2 ${
+                  isNewItem ? 'bg-yellow-900/30 border-l-2 border-yellow-500' : ''
+                } ${!hasSelections ? 'cursor-pointer hover:bg-white/5 active:bg-white/10' : ''}`}
+                onClick={!hasSelections ? () => onToggle(itemKey) : undefined}
+                role={!hasSelections ? 'button' : undefined}
+              >
                 <div className="flex items-baseline gap-2">
-                  <span className="text-orange-300 font-bold text-lg leading-none w-6 text-right flex-shrink-0">
+                  <span className={`font-bold text-lg leading-none w-6 text-right flex-shrink-0 ${
+                    itemDelivered ? 'text-gray-600' : 'text-orange-300'
+                  }`}>
                     {item.cantidad}×
                   </span>
-                  <span className={`text-base leading-snug flex-1 ${isNewItem ? 'text-yellow-200' : 'text-white'}`}>
+                  <span className={`text-base leading-snug flex-1 ${
+                    itemDelivered
+                      ? 'line-through text-gray-600'
+                      : isNewItem ? 'text-yellow-200' : 'text-white'
+                  }`}>
                     {item.nombreArticulo}
                     {featureFlags.packageOptions && item.isToGo && (
                       <span className="ml-2 text-yellow-300 text-xs">🥡 Para llevar</span>
@@ -96,13 +111,32 @@ export default function OrderCard({ order, isLatest }: Props) {
                   </span>
                   <span className="text-gray-500 text-xs flex-shrink-0">{formatTime(item.createdAt)}</span>
                 </div>
+
                 {hasSelections && (
                   <ul className="ml-8 mt-1 space-y-0.5">
-                    {item.selections!.map(s => (
-                      <li key={s.id} className="text-sm text-gray-300 leading-snug">
-                        {s.quantity > 1 ? `${s.quantity}x ${s.optionNameSnapshot}` : s.optionNameSnapshot}
-                      </li>
-                    ))}
+                    {item.selections!.map(s => {
+                      const selKey = `sel:${s.id}`
+                      const selDelivered = isDelivered(selKey)
+                      return (
+                        <li
+                          key={s.id}
+                          onClick={() => onToggle(selKey)}
+                          role="button"
+                          className={`flex items-center gap-1.5 text-sm leading-snug py-1 cursor-pointer select-none rounded -mx-1 px-1 ${
+                            selDelivered
+                              ? 'text-gray-600 line-through'
+                              : 'text-gray-300 hover:text-gray-100 hover:bg-white/5 active:bg-white/10'
+                          }`}
+                        >
+                          {selDelivered
+                            ? <Check className="w-3 h-3 flex-shrink-0 text-gray-600" />
+                            : <span className="w-3 flex-shrink-0" />
+                          }
+                          {s.quantity > 1 ? `${s.quantity}x ${s.optionNameSnapshot}` : s.optionNameSnapshot}
+                        </li>
+                      )
+                    })}
+
                   </ul>
                 )}
               </div>
